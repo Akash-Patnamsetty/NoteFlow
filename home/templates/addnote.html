@@ -1,0 +1,866 @@
+{% extends "nav.html" %}
+{% load static %}
+
+{% block title %}New Note · NoteFlow{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<style>
+    /* ===================================================
+       Add Note Page — extends the existing theme tokens
+       (--bg-body, --bg-card, --primary-purple, etc. all
+       come from nav.css, so this page follows whichever
+       theme — light / white / dark — is active.)
+    =================================================== */
+
+    [data-theme="light"], [data-theme="white"] {
+        --code-bg: #1c1c24;
+        --code-header: #15151e;
+        --code-text: #e5e7eb;
+        --code-border: #2a2a35;
+    }
+    [data-theme="dark"] {
+        --code-bg: #0a0a0e;
+        --code-header: #0f0f13;
+        --code-text: #e5e7eb;
+        --code-border: #2a2a35;
+    }
+
+    .workspace {
+        padding: 0 !important;
+        overflow: hidden !important;
+        display: flex;
+        height: 100%;
+    }
+
+    .note-editor-page {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+    }
+
+    /* ---------- Main editor column ---------- */
+    .editor-main {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        padding: 28px 40px 60px;
+    }
+
+    .editor-topline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 22px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .editor-breadcrumb {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .editor-breadcrumb strong { color: var(--text-main); font-weight: 500; }
+
+    .save-status {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .save-status .dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background-color: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34,197,94,0.15);
+    }
+    .save-status.saving .dot { background-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+
+    .note-title-input {
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text-main);
+        font-size: 2rem;
+        font-weight: 600;
+        width: 100%;
+        margin-bottom: 18px;
+        font-family: 'Poppins', sans-serif;
+    }
+    .note-title-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+    /* ---------- Toolbar ---------- */
+    .editor-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 10px;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        box-shadow: var(--shadow-premium);
+        position: sticky;
+        top: 0;
+        z-index: 5;
+    }
+    .tb-btn {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        transition: all 0.15s ease;
+    }
+    .tb-btn:hover { background-color: var(--bg-interactive); color: var(--primary-purple); }
+    .tb-btn.active {
+        background-color: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        box-shadow: inset 0 0 0 1px var(--primary-purple);
+    }
+    .tb-divider { width: 1px; height: 22px; background-color: var(--border-color); margin: 0 4px; }
+
+    /* ---------- Note body ---------- */
+    .note-body {
+        min-height: 240px;
+        color: var(--text-main);
+        font-size: 1rem;
+        line-height: 1.75;
+        outline: none;
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 0;
+    }
+    .note-body:empty::before {
+        content: attr(data-placeholder);
+        color: var(--text-muted);
+        opacity: 0.6;
+    }
+    .note-body h1 { font-size: 1.6rem; margin: 14px 0 8px; }
+    .note-body h2 { font-size: 1.25rem; margin: 12px 0 6px; }
+    .note-body ul { padding-left: 22px; }
+    .note-body a { color: var(--primary-purple); }
+
+    /* ---------- Inline code blocks (embedded directly in note-body) ---------- */
+    .code-block {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 100%;
+        background-color: var(--code-bg);
+        border: 1px solid var(--code-border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 16px 0;
+        user-select: text;
+    }
+    .code-block-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        background-color: var(--code-header);
+        border-bottom: 1px solid var(--code-border);
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .code-block-header select,
+    .code-block-header input.filename {
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-family: 'Poppins', sans-serif;
+    }
+    .code-block-header select { cursor: pointer; }
+    .code-block-header input.filename { text-align: right; min-width: 90px; }
+    .code-block-header .remove-code {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 2px 6px;
+        border-radius: 5px;
+    }
+    .code-block-header .remove-code:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+    /* CodeMirror instance styling — matches the app theme + gives per-token colors and line numbers */
+    .code-block .CodeMirror {
+        height: auto;
+        min-height: 120px;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        font-size: 0.88rem;
+        line-height: 1.6;
+        padding: 6px 0;
+    }
+    .cm-s-noteflow.CodeMirror { background: var(--code-bg); color: var(--code-text); }
+    .cm-s-noteflow .CodeMirror-gutters { background: var(--code-header); border-right: 1px solid var(--code-border); }
+    .cm-s-noteflow .CodeMirror-linenumber { color: #6b7280; padding: 0 10px 0 6px; }
+    .cm-s-noteflow .CodeMirror-cursor { border-left: 1px solid #f3f4f6; }
+    .cm-s-noteflow .CodeMirror-selected { background: rgba(109,40,217,0.35) !important; }
+    .cm-s-noteflow .cm-keyword { color: #c084fc; }
+    .cm-s-noteflow .cm-def, .cm-s-noteflow .cm-variable-2 { color: #60a5fa; }
+    .cm-s-noteflow .cm-variable { color: #e5e7eb; }
+    .cm-s-noteflow .cm-string, .cm-s-noteflow .cm-string-2 { color: #86efac; }
+    .cm-s-noteflow .cm-number { color: #fbbf24; }
+    .cm-s-noteflow .cm-comment { color: #6b7280; font-style: italic; }
+    .cm-s-noteflow .cm-operator { color: #f472b6; }
+    .cm-s-noteflow .cm-atom { color: #fbbf24; }
+    .cm-s-noteflow .cm-property { color: #60a5fa; }
+    .cm-s-noteflow .cm-tag { color: #f472b6; }
+    .cm-s-noteflow .cm-attribute { color: #93c5fd; }
+    .cm-s-noteflow .cm-meta { color: #9ca3af; }
+    .cm-s-noteflow .cm-builtin { color: #22d3ee; }
+
+    .add-code-btn {
+        align-self: flex-start;
+        background: var(--bg-card);
+        border: 1px dashed var(--border-color);
+        color: var(--text-muted);
+        padding: 10px 16px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-size: 0.88rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.15s ease;
+    }
+    .add-code-btn:hover { border-color: var(--primary-purple); color: var(--primary-purple); }
+
+    /* ---------- Right side panel ---------- */
+    .editor-side-panel {
+        width: 300px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border-color);
+        background-color: var(--bg-sidebar);
+        padding: 26px 22px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
+    }
+
+    .panel-block-title {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+
+    /* Tags */
+    .tags-input-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        background-color: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 10px;
+    }
+    .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background-color: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        border-radius: 20px;
+        padding: 5px 10px 5px 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+    .tag-chip button {
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        font-size: 0.85rem;
+        line-height: 1;
+        opacity: 0.7;
+    }
+    .tag-chip button:hover { opacity: 1; }
+    #tagInput {
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text-main);
+        font-size: 0.85rem;
+        flex: 1;
+        min-width: 80px;
+        padding: 5px;
+    }
+
+    /* Actions */
+    .panel-actions { display: flex; flex-direction: column; gap: 10px; }
+    .btn-solid, .btn-outline {
+        border: none;
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 0.92rem;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.15s ease;
+        font-family: 'Poppins', sans-serif;
+    }
+    .btn-solid {
+        background-color: var(--primary-purple);
+        color: #fff;
+    }
+    .btn-solid:hover { background-color: var(--primary-hover); }
+    .btn-outline {
+        background-color: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+    }
+    .btn-outline:hover { border-color: var(--primary-purple); color: var(--primary-purple); }
+
+    /* Meta */
+    .meta-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .meta-row:last-child { border-bottom: none; }
+    .meta-row span:last-child { color: var(--text-main); font-weight: 500; }
+
+    /* ---------- Share modal ---------- */
+    .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .share-modal {
+        background-color: var(--bg-card);
+        border-radius: 14px;
+        padding: 24px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    }
+    .share-modal h3 { font-size: 1.05rem; margin-bottom: 6px; color: var(--text-main); }
+    .share-modal p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
+    .share-link-row {
+        display: flex;
+        gap: 8px;
+        background-color: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 6px;
+    }
+    .share-link-row input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text-main);
+        font-size: 0.85rem;
+        padding: 6px 8px;
+    }
+    .share-link-row button {
+        background-color: var(--primary-purple);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        padding: 8px 14px;
+        font-size: 0.82rem;
+        cursor: pointer;
+    }
+    .modal-close-row { text-align: right; margin-top: 18px; }
+    .modal-close-row button {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+        position: fixed;
+        bottom: 26px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background-color: var(--text-main);
+        color: var(--bg-body);
+        padding: 12px 22px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.25s ease;
+        z-index: 200;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------- Mobile panel toggle ---------- */
+    .panel-toggle-btn {
+        display: none;
+        position: fixed;
+        bottom: 22px;
+        right: 22px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background-color: var(--primary-purple);
+        color: #fff;
+        border: none;
+        font-size: 1.2rem;
+        box-shadow: 0 8px 20px rgba(109,40,217,0.35);
+        z-index: 90;
+        cursor: pointer;
+    }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 1024px) {
+        .editor-side-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 300px;
+            max-width: 82vw;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.15);
+            z-index: 95;
+        }
+        .editor-side-panel.open { transform: translateX(0); }
+        .panel-toggle-btn { display: inline-flex; align-items: center; justify-content: center; }
+        .editor-main { padding: 24px 24px 80px; }
+    }
+
+    @media (max-width: 768px) {
+        .note-title-input { font-size: 1.5rem; }
+        .editor-toolbar { padding: 6px 8px; }
+        .tb-btn { width: 30px; height: 30px; font-size: 0.8rem; }
+        .code-block-header input.filename { display: none; }
+        .editor-topline { gap: 10px; }
+        .editor-breadcrumb { font-size: 0.78rem; }
+    }
+
+    @media (max-width: 480px) {
+        .editor-main { padding: 18px 16px 80px; }
+        .editor-topline { flex-direction: column; align-items: flex-start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="note-editor-page">
+
+    <!-- ===================== MAIN EDITOR ===================== -->
+    <div class="editor-main">
+
+        <div class="editor-topline">
+            <div class="editor-breadcrumb">
+                <span>📁 All Notes</span> / <strong>New Note</strong>
+            </div>
+            <div class="save-status" id="saveStatus">
+                <span class="dot"></span> <span id="saveStatusText">All changes saved</span>
+            </div>
+        </div>
+
+        <input type="text" class="note-title-input" id="noteTitle" placeholder="Untitled Note" autofocus>
+
+        <div class="editor-toolbar">
+            <button class="tb-btn" data-cmd="formatBlock" data-value="H1" title="Heading 1">H1</button>
+            <button class="tb-btn" data-cmd="formatBlock" data-value="H2" title="Heading 2">H2</button>
+            <div class="tb-divider"></div>
+            <button class="tb-btn" data-cmd="bold" title="Bold"><b>B</b></button>
+            <button class="tb-btn" data-cmd="italic" title="Italic"><i>I</i></button>
+            <button class="tb-btn" data-cmd="underline" title="Underline"><u>U</u></button>
+            <div class="tb-divider"></div>
+            <button class="tb-btn" data-cmd="insertUnorderedList" title="Bullet list">☰</button>
+            <button class="tb-btn" id="checklistBtn" title="Checklist">☑</button>
+            <button class="tb-btn" id="linkBtn" title="Insert link">🔗</button>
+            <div class="tb-divider"></div>
+            <button class="tb-btn" id="toolbarAddCode" title="Insert code block here">{ }</button>
+        </div>
+
+        <div class="note-body" id="noteBody" contenteditable="true" data-placeholder="Start writing your note... place your cursor anywhere and click { } to drop in a code block right there."></div>
+
+        <button class="add-code-btn" id="addCodeBtn">
+            <span>💻</span> Add Code Block
+        </button>
+    </div>
+
+    <!-- ===================== SIDE PANEL ===================== -->
+    <aside class="editor-side-panel" id="sidePanel">
+
+        <div>
+            <div class="panel-block-title">Tags</div>
+            <div class="tags-input-wrap" id="tagsWrap">
+                <input type="text" id="tagInput" placeholder="Add a tag + Enter">
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-block-title">Quick Actions</div>
+            <div class="panel-actions">
+                <button class="btn-solid" id="saveNoteBtn">💾 Save Note</button>
+                <button class="btn-outline" id="shareNoteBtn">🔗 Share</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="panel-block-title">Note Info</div>
+            <div class="meta-row"><span>Words</span> <span id="wordCount">0</span></div>
+            <div class="meta-row"><span>Code blocks</span> <span id="codeCount">0</span></div>
+            <div class="meta-row"><span>Created</span> <span id="createdAt">Just now</span></div>
+        </div>
+
+    </aside>
+
+    <button class="panel-toggle-btn" id="panelToggleBtn">⚙</button>
+</div>
+
+<!-- ===================== SHARE MODAL ===================== -->
+<div class="modal-overlay" id="shareModal">
+    <div class="share-modal">
+        <h3>Share this note</h3>
+        <p>Anyone with this link can view a read-only version of your note.</p>
+        <div class="share-link-row">
+            <input type="text" id="shareLinkInput" readonly value="https://noteflow.app/n/8f3k2-django-auth-flow">
+            <button id="copyLinkBtn">Copy</button>
+        </div>
+        <div class="modal-close-row">
+            <button id="closeShareModal">Close</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script>
+// Guard against this script running twice (e.g. template accidentally
+// included more than once) — a common cause of duplicated widgets
+// stacking / overlapping on the page.
+if (!window.__noteflowAddNoteInit) {
+window.__noteflowAddNoteInit = true;
+
+(function () {
+    const noteBody = document.getElementById('noteBody');
+    const noteTitle = document.getElementById('noteTitle');
+    const toolbarBtns = document.querySelectorAll('.tb-btn[data-cmd]');
+    const addCodeBtn = document.getElementById('addCodeBtn');
+    const toolbarAddCode = document.getElementById('toolbarAddCode');
+    const tagsWrap = document.getElementById('tagsWrap');
+    const tagInput = document.getElementById('tagInput');
+    const wordCountEl = document.getElementById('wordCount');
+    const codeCountEl = document.getElementById('codeCount');
+    const toast = document.getElementById('toast');
+    const saveStatus = document.getElementById('saveStatus');
+    const saveStatusText = document.getElementById('saveStatusText');
+    const sidePanel = document.getElementById('sidePanel');
+    const panelToggleBtn = document.getElementById('panelToggleBtn');
+
+    let codeBlockCount = 0;
+    let lastRange = null; // remembers where the cursor was in noteBody
+
+    /* ---------- Track cursor position inside the note ---------- */
+    noteBody.addEventListener('keyup', saveCursor);
+    noteBody.addEventListener('mouseup', saveCursor);
+    noteBody.addEventListener('focus', saveCursor);
+    function saveCursor() {
+        const sel = window.getSelection();
+        if (sel.rangeCount && noteBody.contains(sel.anchorNode)) {
+            lastRange = sel.getRangeAt(0).cloneRange();
+        }
+    }
+
+    /* ---------- Toolbar formatting ---------- */
+    toolbarBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            noteBody.focus();
+            restoreCursor();
+            document.execCommand(btn.dataset.cmd, false, btn.dataset.value || null);
+            saveCursor();
+            updateToolbarState();
+            markUnsaved();
+        });
+    });
+
+    document.getElementById('checklistBtn').addEventListener('click', () => {
+        noteBody.focus();
+        restoreCursor();
+        document.execCommand('insertHTML', false,
+            '<div><input type="checkbox" style="margin-right:8px;"> </div>');
+        saveCursor();
+        markUnsaved();
+    });
+
+    document.getElementById('linkBtn').addEventListener('click', () => {
+        const url = prompt('Enter URL:', 'https://');
+        if (url) {
+            noteBody.focus();
+            restoreCursor();
+            document.execCommand('createLink', false, url);
+            saveCursor();
+            markUnsaved();
+        }
+    });
+
+    function restoreCursor() {
+        if (!lastRange) return;
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(lastRange);
+    }
+
+    noteBody.addEventListener('input', () => {
+        updateWordCount();
+        markUnsaved();
+    });
+    noteTitle.addEventListener('input', markUnsaved);
+
+    function updateWordCount() {
+        const text = noteBody.innerText.trim();
+        wordCountEl.textContent = text ? text.split(/\s+/).length : 0;
+    }
+
+    /* ---------- Active toolbar state (H1/H2/B/I/U highlight in purple) ---------- */
+    document.addEventListener('selectionchange', updateToolbarState);
+    function updateToolbarState() {
+        const sel = window.getSelection();
+        if (!sel.rangeCount || !noteBody.contains(sel.anchorNode)) {
+            toolbarBtns.forEach(b => b.classList.remove('active'));
+            return;
+        }
+        toolbarBtns.forEach(btn => {
+            const cmd = btn.dataset.cmd;
+            let isActive = false;
+            try {
+                if (cmd === 'formatBlock') {
+                    const blockVal = (document.queryCommandValue('formatBlock') || '').toLowerCase();
+                    isActive = blockVal === btn.dataset.value.toLowerCase();
+                } else {
+                    isActive = document.queryCommandState(cmd);
+                }
+            } catch (e) { /* ignore unsupported command state queries */ }
+            btn.classList.toggle('active', isActive);
+        });
+    }
+
+    /* ---------- Language -> CodeMirror mode ---------- */
+    function modeForLang(lang) {
+        switch (lang) {
+            case 'Python': return 'python';
+            case 'JavaScript': return 'javascript';
+            case 'HTML': return 'htmlmixed';
+            case 'CSS': return 'css';
+            case 'SQL': return 'text/x-sql';
+            case 'Bash': return 'shell';
+            default: return 'python';
+        }
+    }
+
+    /* ---------- Code blocks (inserted INLINE at the cursor, inside noteBody) ---------- */
+    function insertCodeBlockAtCursor() {
+        codeBlockCount++;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block';
+        wrapper.contentEditable = 'false'; // atomic, non-editable island inside the note
+        wrapper.innerHTML = `
+            <div class="code-block-header">
+                <select class="lang-select">
+                    <option>Python</option>
+                    <option>JavaScript</option>
+                    <option>HTML</option>
+                    <option>CSS</option>
+                    <option>SQL</option>
+                    <option>Bash</option>
+                </select>
+                <input type="text" class="filename" placeholder="filename.py" value="snippet.py">
+                <button class="remove-code" title="Remove block">✕</button>
+            </div>
+            <textarea></textarea>
+        `;
+
+        noteBody.focus();
+        const sel = window.getSelection();
+        let range;
+        if (lastRange && noteBody.contains(lastRange.startContainer)) {
+            range = lastRange.cloneRange();
+        } else {
+            range = document.createRange();
+            range.selectNodeContents(noteBody);
+            range.collapse(false); // fall back to the end of the note
+        }
+        range.deleteContents();
+        range.insertNode(wrapper);
+
+        // a line to keep typing on right after the block
+        const afterLine = document.createElement('div');
+        afterLine.innerHTML = '<br>';
+        wrapper.after(afterLine);
+
+        // move the caret after the inserted block
+        const newRange = document.createRange();
+        newRange.setStartAfter(afterLine);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastRange = newRange.cloneRange();
+
+        // initialize CodeMirror on the textarea we just inserted
+        const textareaEl = wrapper.querySelector('textarea');
+        const cm = CodeMirror.fromTextArea(textareaEl, {
+            mode: modeForLang('Python'),
+            theme: 'noteflow',
+            lineNumbers: true,
+            tabSize: 4,
+            indentUnit: 4,
+            lineWrapping: true,
+            viewportMargin: Infinity, // grow to fit content, no inner scrollbar
+        });
+
+        const select = wrapper.querySelector('.lang-select');
+        select.addEventListener('change', () => {
+            cm.setOption('mode', modeForLang(select.value));
+            markUnsaved();
+        });
+        cm.on('change', markUnsaved);
+
+        wrapper.querySelector('.remove-code').addEventListener('click', () => {
+            afterLine.remove();
+            wrapper.remove();
+            codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
+            markUnsaved();
+        });
+
+        codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
+        setTimeout(() => cm.refresh(), 30);
+        cm.focus();
+        markUnsaved();
+    }
+
+    addCodeBtn.addEventListener('click', insertCodeBlockAtCursor);
+    toolbarAddCode.addEventListener('click', insertCodeBlockAtCursor);
+
+    /* ---------- Tags ---------- */
+    tagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && tagInput.value.trim() !== '') {
+            e.preventDefault();
+            addTag(tagInput.value.trim());
+            tagInput.value = '';
+            markUnsaved();
+        }
+    });
+
+    function addTag(text) {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip';
+        chip.innerHTML = `${text} <button title="Remove tag">✕</button>`;
+        chip.querySelector('button').addEventListener('click', () => {
+            chip.remove();
+            markUnsaved();
+        });
+        tagsWrap.insertBefore(chip, tagInput);
+    }
+
+    /* ---------- Save / Share ---------- */
+    function markUnsaved() {
+        saveStatus.classList.add('saving');
+        saveStatusText.textContent = 'Unsaved changes';
+    }
+
+    function markSaved() {
+        saveStatus.classList.remove('saving');
+        saveStatusText.textContent = 'All changes saved';
+    }
+
+    document.getElementById('saveNoteBtn').addEventListener('click', () => {
+        // Hook this up to your Django save endpoint (fetch/POST) here.
+        markSaved();
+        showToast('Note saved successfully');
+    });
+
+    const shareModal = document.getElementById('shareModal');
+    document.getElementById('shareNoteBtn').addEventListener('click', () => shareModal.classList.add('open'));
+    document.getElementById('closeShareModal').addEventListener('click', () => shareModal.classList.remove('open'));
+    shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('open'); });
+
+    document.getElementById('copyLinkBtn').addEventListener('click', () => {
+        const input = document.getElementById('shareLinkInput');
+        input.select();
+        navigator.clipboard.writeText(input.value).then(() => showToast('Link copied to clipboard'));
+    });
+
+    function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    /* ---------- Mobile side panel toggle ---------- */
+    panelToggleBtn.addEventListener('click', () => sidePanel.classList.toggle('open'));
+    document.addEventListener('click', (e) => {
+        if (window.innerWidth <= 1024 &&
+            sidePanel.classList.contains('open') &&
+            !sidePanel.contains(e.target) &&
+            e.target !== panelToggleBtn) {
+            sidePanel.classList.remove('open');
+        }
+    });
+
+    /* ---------- Keyboard shortcut: Ctrl+S ---------- */
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            document.getElementById('saveNoteBtn').click();
+        }
+    });
+
+    // seed one code block by default so the section isn't empty
+    insertCodeBlockAtCursor();
+    markSaved();
+})();
+
+} // end init guard
+</script>
+{% endblock %}

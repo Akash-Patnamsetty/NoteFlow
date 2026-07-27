@@ -1,0 +1,97 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - NoteFlow Premium</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/login.css' %}">
+</head>
+<body>
+
+    <div class="ambient-glow"></div>
+
+    <!-- Right Top Corner Independent Theme Swapper -->
+    <div class="theme-container">
+        <div class="theme-selector">
+            <button class="theme-opt" data-theme="light" title="Light Mode">☀️</button>
+            <button class="theme-opt" data-theme="white" title="White Mode">🌓</button>
+            <button class="theme-opt active" data-theme="dark" title="Obsidian Dark Mode">🌙</button>
+        </div>
+    </div>
+
+    <!-- Login Context Block Container -->
+    <div class="auth-container">
+        <div class="auth-card">
+            
+            <div class="brand-header">
+                <div class="logo-badge">NF</div>
+                <h1>Welcome to NoteFlow</h1>
+                <p>Sign in to access your premium workspace</p>
+            </div>
+
+            <!-- Django Non-field Errors Banner Hook -->
+            {% if form.non_field_errors %}
+            <div class="error-banner">
+                <i>⚠️</i>
+                <span>Invalid credentials, please try again.</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="">
+                {% csrf_token %}
+                
+                <!-- Username / Email Field Container -->
+                <div class="form-group">
+                    <label for="id_username">USERNAME OR EMAIL</label>
+                    <div class="input-wrapper">
+                        <input type="text" name="username" id="id_username" placeholder="Enter your username..." required autofocus>
+                        <i>👤</i>
+                    </div>
+                </div>
+
+                <!-- Password Field Container -->
+                <div class="form-group">
+                    <label for="id_password">PASSWORD</label>
+                    <div class="input-wrapper">
+                        <input type="password" name="password" id="id_password" placeholder="••••••••" required>
+                        <i>🔒</i>
+                    </div>
+                </div>
+
+                <!-- Form Interaction Layer -->
+                <div class="form-actions">
+                    <label class="remember-me">
+                        <input type="checkbox" name="remember_me">
+                        <span>Remember me</span>
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+
+                <button type="submit" class="btn-submit">Sign In to Dashboard</button>
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account? <a href="{%url 'register'%}">Create workspace</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Symbol Theme Engine Initialization ---
+        const themeButtons = document.querySelectorAll('.theme-opt');
+        
+        // Match active dashboard setup behavior defaults
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                themeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const selectedTheme = btn.getAttribute('data-theme');
+                document.documentElement.setAttribute('data-theme', selectedTheme);
+            });
+        });
+    </script>
+</body>
+</html>

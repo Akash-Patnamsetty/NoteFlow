@@ -1,0 +1,145 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NoteFlow Premium Dashboard{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/nav.css' %}">
+    {% block extra_css %}
+    {% endblock %}
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="logo-section">
+            <div class="logo-icon">NF</div>
+            <span class="logo-text">NoteFlow</span>
+        </div>
+
+            <a href="{% url 'addnote' %}">
+        <button class="new-note-btn">
+         
+            <strong>+</strong><span class="label-text">New Note</span>
+            <span class="shortcut">Ctrl+N</span>
+               
+        </button>
+        </a>
+
+        <a href="{% url 'dashboard' %}">
+        <div class="nav-item active" data-filter="all">
+            <div class="nav-link"><i>📁</i> <span class="label-text">  All Notes  </span></div>
+            <span class="count">24</span>
+        </div>
+        </a>
+        <div class="nav-item" data-filter="archived">
+            <div class="nav-link"><i>📦</i> <span class="label-text">Archived</span></div>
+            <span class="count">6</span>
+        </div>
+        <div class="nav-item" data-filter="trash">
+            <div class="nav-link"><i>🗑️</i> <span class="label-text">Trash</span></div>
+            <span class="count">2</span>
+        </div>
+
+        <div class="nav-title">Tags</div>
+        <div class="nav-item" data-filter="python">
+            <div class="nav-link"><span class="tag-dot" style="background-color: #3b82f6;"></span> <span class="label-text">Python</span></div>
+            <span class="count">8</span>
+        </div>
+        <div class="nav-item" data-filter="django">
+            <div class="nav-link"><span class="tag-dot" style="background-color: #14b8a6;"></span> <span class="label-text">Django</span></div>
+            <span class="count">6</span>
+        </div>
+        <div class="nav-item" data-filter="interview">
+            <div class="nav-link"><span class="tag-dot" style="background-color: #f59e0b;"></span> <span class="label-text">Interview</span></div>
+            <span class="count">5</span>
+        </div>
+                <div class="nav-item" data-filter="python">
+            <div class="nav-link"><span class="tag-dot" style="background-color: #3b82f6;"></span> <span class="label-text">Python</span></div>
+            <span class="count">8</span>
+        </div>
+        <div class="nav-item" data-filter="django">
+            <div class="nav-link"><span class="tag-dot" style="background-color: #14b8a6;"></span> <span class="label-text">Django</span></div>
+            <span class="count">6</span>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="nav-item" data-filter="settings">
+                <div class="nav-link"><i>⚙️</i> <span class="label-text">
+                    <a href="{% url 'settings' %}"> Settings</a></span></div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <button class="toggle-btn" id="mobileMenuBtn" style="display: none;">☰</button>
+            
+            <div class="search-container">
+                <div class="search-bar">
+                    <i>🔍</i>
+                    <input type="text" placeholder="Search notes...">
+                </div>
+            </div>
+
+            <div class="top-bar-right">
+                <button class="toggle-btn active" id="gridViewBtn">⊞ Grid</button>
+                <button class="toggle-btn" id="listViewBtn">≡ List</button>
+
+                <div class="theme-selector">
+                    <button class="theme-opt active" data-theme="light" title="Light Mode">☀️</button>
+                    <button class="theme-opt" data-theme="white" title="White Mode">🌓</button>
+                    <button class="theme-opt" data-theme="dark" title="Dark Mode">🌙</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="workspace">
+            {% block content %}
+            {% endblock %}
+        </section>
+    </main>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+        function evaluateResponsiveLayout() {
+            if (window.innerWidth <= 768) {
+                mobileMenuBtn.style.display = 'inline-flex';
+                sidebar.classList.remove('expanded');
+            } else {
+                mobileMenuBtn.style.display = 'none';
+            }
+        }
+        window.addEventListener('resize', evaluateResponsiveLayout);
+        evaluateResponsiveLayout();
+
+        mobileMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            sidebar.classList.toggle('expanded');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 768 && !sidebar.contains(e.target) && e.target !== mobileMenuBtn) {
+                sidebar.classList.remove('expanded');
+            }
+        });
+
+        // Symbol Theme Selector Click Events
+        const themeButtons = document.querySelectorAll('.theme-opt');
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                themeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const selectedTheme = btn.getAttribute('data-theme');
+                document.documentElement.setAttribute('data-theme', selectedTheme);
+            });
+        });
+    </script>
+    <!-- Load the Lenis library bundle first -->
+<script src="https://unpkg.com/@studio-freight/lenis@1.0.36/dist/lenis.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

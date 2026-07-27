@@ -1,0 +1,387 @@
+
+{% extends 'nav.html' %}
+
+{% block title %}Dashboard Workspace - NoteFlow{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* --- Main Scannable Grid Configuration --- */
+    .notes-container {
+        display: grid;
+        gap: 20px;
+        transition: all 0.3s ease;
+        /* CRUCIAL FIX: Move the scroll space padding inside the child element 
+           that Lenis is explicitly targeting and measuring. */
+        padding-bottom: 60px !important; 
+    }
+
+    .notes-container.grid-view {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+
+    .notes-container.list-view {
+        grid-template-columns: 1fr;
+    }
+
+    /* --- Card UI Structure Styles --- */
+    .note-card {
+        background-color: var(--bg-card);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: relative;
+        box-shadow: var(--shadow-premium);
+    }
+
+    .notes-container.list-view .note-card {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px;
+    }
+    
+    .notes-container.list-view .note-card .note-body-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        flex: 1;
+    }
+    
+    .notes-container.list-view .note-card .note-title {
+        min-width: 200px;
+    }
+    
+    .notes-container.list-view .note-card .note-footer {
+        margin: 0;
+        border: none;
+        padding: 0;
+    }
+
+    .note-title {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+    
+    .note-snippet {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    
+    .tag-list {
+        display: flex;
+        gap: 6px;
+    }
+    
+    .tag {
+        background-color: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+    
+    .note-footer {
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+    }
+
+    /* --- Strict Mobile Enforcement Override --- */
+    @media (max-width: 768px) {
+        #notesWrapper {
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+            gap: 16px !important;
+            padding-bottom: 40px !important;
+        }
+
+        #notesWrapper .note-card {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 20px !important;
+            gap: 12px !important;
+        }
+
+        #notesWrapper .note-card .note-body-wrapper {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            gap: 5px !important;
+            width: 100%;
+        }
+
+        #notesWrapper .note-card .note-footer {
+            margin-top: auto !important;
+            border-top: 1px solid var(--border-color) !important;
+            padding-top: 12px !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: space-between !important;
+        }
+    }
+
+    /* Custom container styling rule for Lenis */
+    .workspace {
+        flex: 1;
+        padding: 30px 30px 20px 30px; /* Neutralized bottom padding constraint */
+        overflow-y: auto; 
+        overscroll-behavior: contain;
+    }
+
+    .workspace::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+    } 
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="notes-container grid-view" id="notesWrapper">
+    
+    {% for note in notes %}
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">{{ note.title }}</h3>
+            <p class="note-snippet">{{ note.snippet }}</p>
+        </div>
+        <div class="tag-list">
+            {% for tag in note.tags.all %}
+            <span class="tag">{{ tag.name }}</span>
+            {% endfor %}
+        </div>
+        <div class="note-footer"><span>⟳ {{ note.updated_at|timesince }} ago</span></div>
+    </div>
+    {% empty %}
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+        <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+        <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+        <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+        <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+        <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+    <div class="note-card">
+        <div class="note-body-wrapper">
+            <h3 class="note-title">Django REST Framework</h3>
+            <p class="note-snippet">Notes on DRF serializers, viewsets, and custom permissions routing templates.</p>
+        </div>
+        <div class="tag-list"><span class="tag">Django</span><span class="tag">Backend</span></div>
+        <div class="note-footer"><span>⟳ 2 mins ago</span></div>
+    </div>
+
+
+    {% endfor %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Grid vs List Presentation View Switching Script Engine
+    const notesWrapper = document.getElementById('notesWrapper');
+    const gridViewBtn = document.getElementById('gridViewBtn');
+    const listViewBtn = document.getElementById('listViewBtn');
+
+    if (gridViewBtn && listViewBtn && notesWrapper) {
+        gridViewBtn.addEventListener('click', () => {
+            gridViewBtn.classList.add('active');
+            listViewBtn.classList.remove('active');
+            notesWrapper.classList.remove('list-view');
+            notesWrapper.classList.add('grid-view');
+        });
+
+        listViewBtn.addEventListener('click', () => {
+            listViewBtn.classList.add('active');
+            gridViewBtn.classList.remove('active');
+            notesWrapper.classList.remove('grid-view');
+            notesWrapper.classList.add('list-view');
+        });
+    }
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const workspaceContainer = document.querySelector('.workspace');
+
+        if (workspaceContainer) {
+            const lenis = new Lenis({
+                wrapper: workspaceContainer, 
+                content: workspaceContainer.firstElementChild, 
+                duration: 1.2, 
+                easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), 
+                orientation: 'vertical',
+                gestureOrientation: 'vertical',
+                smoothWheel: true,
+                wheelMultiplier: 0.9,
+            });
+
+            function raf(time) {
+                lenis.raf(time);
+                requestAnimationFrame(raf);
+            }
+
+            requestAnimationFrame(raf);
+
+            // FIX: Forces Lenis to recalculate container bounds 
+            // when layout grids shift from List to Grid formats dynamically.
+            const observer = new ResizeObserver(() => {
+                lenis.resize();
+            });
+            if (workspaceContainer.firstElementChild) {
+                observer.observe(workspaceContainer.firstElementChild);
+            }
+        }
+    });
+</script>
+{% endblock %}

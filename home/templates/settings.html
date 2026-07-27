@@ -1,0 +1,981 @@
+{% extends 'nav.html' %}
+
+{% block title %}Settings - NoteFlow{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ============================================================
+       SETTINGS PAGE — shares design tokens with the rest of the app
+       (--bg-card, --bg-body, --bg-interactive, --border-color,
+       --primary-purple, --text-main, --text-muted, --shadow-premium)
+       ============================================================ */
+
+    .settings-shell {
+        display: flex;
+        gap: 32px;
+        align-items: flex-start;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding-bottom: 60px;
+    }
+
+    /* --- Page heading --- */
+    .settings-heading {
+        max-width: 1100px;
+        margin: 0 auto 28px auto;
+    }
+
+    .settings-heading h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+    }
+
+    .settings-heading p {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        margin-top: 4px;
+    }
+
+    /* --- Left rail: category nav --- */
+    .settings-rail {
+        width: 220px;
+        flex-shrink: 0;
+        position: sticky;
+        top: 95px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .settings-rail-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        border: 1px solid transparent;
+    }
+
+    .settings-rail-item .rail-icon {
+        width: 18px;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+
+    .settings-rail-item:hover {
+        background: var(--bg-interactive);
+        color: var(--text-main);
+    }
+
+    .settings-rail-item.active {
+        background: var(--feature-glow);
+        border-color: var(--primary-purple);
+        color: var(--primary-purple);
+    }
+
+    .settings-rail-item.danger-link {
+        color: #f87171;
+    }
+
+    .settings-rail-item.danger-link:hover {
+        background: rgba(248, 113, 113, 0.08);
+        color: #f87171;
+    }
+
+    /* --- Mobile tab strip (replaces the rail on small screens) --- */
+    .settings-tabstrip {
+        display: none;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        margin-bottom: 20px;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .settings-tabstrip::-webkit-scrollbar { display: none; }
+
+    .settings-tabstrip .tab-pill {
+        flex-shrink: 0;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        white-space: nowrap;
+        color: var(--text-muted);
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .settings-tabstrip .tab-pill.active {
+        color: #ffffff;
+        background: var(--primary-purple);
+        border-color: var(--primary-purple);
+    }
+
+    /* --- Right: panels --- */
+    .settings-panels {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .settings-panel { display: none; flex-direction: column; gap: 24px; }
+    .settings-panel.active { display: flex; }
+
+    .settings-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 28px;
+        box-shadow: var(--shadow-premium);
+    }
+
+    .settings-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+
+    .settings-card-header h3 {
+        font-size: 1.02rem;
+        font-weight: 600;
+    }
+
+    .settings-card-header p {
+        color: var(--text-muted);
+        font-size: 0.82rem;
+        margin-top: 4px;
+        max-width: 480px;
+    }
+
+    /* --- Form primitives --- */
+    .field-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-bottom: 18px;
+    }
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    .field label {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.88rem;
+        color: var(--text-main);
+        font-family: 'Poppins', sans-serif;
+        transition: border-color 0.15s;
+    }
+
+    .field textarea { resize: vertical; min-height: 80px; }
+
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+        outline: none;
+        border-color: var(--primary-purple);
+    }
+
+    .field-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+    .card-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 4px;
+    }
+
+    .save-confirm {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+    }
+
+    .save-confirm.show { opacity: 1; }
+
+    .save-confirm .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #28c840;
+    }
+
+    /* --- Appearance: theme swatches --- */
+    .theme-swatch-row {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .theme-swatch {
+        width: 140px;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color 0.15s, transform 0.15s;
+        background: var(--bg-interactive);
+    }
+
+    .theme-swatch:hover { transform: translateY(-2px); }
+    .theme-swatch.active { border-color: var(--primary-purple); }
+
+    .swatch-preview {
+        height: 70px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px;
+    }
+
+    .swatch-preview .bar { height: 6px; border-radius: 3px; }
+    .swatch-preview .bar.w1 { width: 60%; }
+    .swatch-preview .bar.w2 { width: 85%; }
+    .swatch-preview .bar.w3 { width: 40%; }
+
+    .swatch-preview.dark { background: #0f0f13; }
+    .swatch-preview.dark .bar { background: #2a2a35; }
+    .swatch-preview.dark .bar.w1 { background: var(--primary-purple); }
+
+    .swatch-preview.light { background: #f8fafc; }
+    .swatch-preview.light .bar { background: #e2e8f0; }
+    .swatch-preview.light .bar.w1 { background: var(--primary-purple); }
+
+    .swatch-preview.white { background: #ffffff; }
+    .swatch-preview.white .bar { background: #e5e7eb; }
+    .swatch-preview.white .bar.w1 { background: var(--primary-purple); }
+
+    .swatch-label {
+        text-align: center;
+        font-size: 0.78rem;
+        font-weight: 500;
+        padding: 8px 0;
+        color: var(--text-main);
+        border-top: 1px solid var(--border-color);
+    }
+
+    /* --- Appearance: default view toggle --- */
+    .segmented-toggle {
+        display: inline-flex;
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 3px;
+        gap: 2px;
+    }
+
+    .segmented-toggle button {
+        border: none;
+        background: transparent;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .segmented-toggle button.active {
+        background: var(--bg-card);
+        color: var(--primary-purple);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    /* --- Toggle switch rows (notifications / security) --- */
+    .toggle-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .toggle-row:first-child { padding-top: 0; }
+
+    .toggle-copy h4 {
+        font-size: 0.88rem;
+        font-weight: 500;
+        margin-bottom: 2px;
+    }
+
+    .toggle-copy p {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+    }
+
+    .switch {
+        position: relative;
+        width: 42px;
+        height: 24px;
+        flex-shrink: 0;
+    }
+
+    .switch input { opacity: 0; width: 0; height: 0; }
+
+    .switch-track {
+        position: absolute;
+        inset: 0;
+        background: var(--border-color);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .switch-track::before {
+        content: "";
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+    }
+
+    .switch input:checked + .switch-track {
+        background: var(--primary-purple);
+    }
+
+    .switch input:checked + .switch-track::before {
+        transform: translateX(18px);
+    }
+
+    /* --- Sessions list --- */
+    .session-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .session-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .session-row:first-child { padding-top: 0; }
+
+    .session-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: var(--bg-interactive);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.05rem;
+        flex-shrink: 0;
+    }
+
+    .session-copy { flex: 1; min-width: 0; }
+    .session-copy h4 { font-size: 0.85rem; font-weight: 500; }
+    .session-copy p { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+    .session-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #28c840;
+        background: rgba(40, 200, 64, 0.1);
+        padding: 4px 10px;
+        border-radius: 20px;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    /* --- Data & privacy / danger zone --- */
+    .export-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .export-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .export-row:first-child { padding-top: 0; }
+
+    .export-copy h4 { font-size: 0.85rem; font-weight: 500; }
+    .export-copy p { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+    .settings-card.danger {
+        border-color: rgba(248, 113, 113, 0.35);
+    }
+
+    .settings-card.danger .settings-card-header h3 { color: #f87171; }
+
+    .danger-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 14px 0;
+        border-bottom: 1px solid rgba(248, 113, 113, 0.15);
+    }
+
+    .danger-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .danger-row:first-child { padding-top: 0; }
+
+    .btn-danger-outline {
+        padding: 8px 18px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        background: transparent;
+        border: 1px solid #f87171;
+        color: #f87171;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+    }
+
+    .btn-danger-outline:hover {
+        background: #f87171;
+        color: #ffffff;
+    }
+
+    .btn-danger-outline:active { transform: scale(0.97); }
+
+    /* Neutral small outline button (e.g. session sign-out) — same shape
+       as btn-danger-outline but without the alarm color */
+    .btn-outline-neutral {
+        padding: 7px 16px;
+        border-radius: 10px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        background: transparent;
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: all 0.15s;
+    }
+
+    .btn-outline-neutral:hover {
+        border-color: #f87171;
+        color: #f87171;
+    }
+
+    .btn-outline-neutral:active { transform: scale(0.97); }
+
+    /* Small inline spinner shown on buttons mid-action */
+    .btn-spinner {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-top-color: #ffffff;
+        border-radius: 50%;
+        animation: btnSpin 0.6s linear infinite;
+        margin-right: 6px;
+        vertical-align: -1px;
+    }
+
+    @keyframes btnSpin {
+        to { transform: rotate(360deg); }
+    }
+
+    .btn-premium.primary:active,
+    .btn-premium.secondary:active { transform: scale(0.97); }
+
+    .btn-premium:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* ============================================================
+       RESPONSIVE BREAKDOWN
+       ============================================================ */
+
+    @media (max-width: 900px) {
+        .settings-shell { flex-direction: column; gap: 0; }
+        .settings-rail { display: none; }
+        .settings-tabstrip { display: flex; }
+        .settings-heading { padding: 0 4px; }
+    }
+
+    @media (max-width: 640px) {
+        .field-group { grid-template-columns: 1fr; }
+        .settings-card { padding: 20px; }
+        .avatar-row { gap: 14px; }
+        .card-actions { flex-wrap: wrap; }
+        .theme-swatch { width: calc(50% - 7px); }
+        .export-row,
+        .danger-row,
+        .toggle-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .btn-danger-outline,
+        .export-row .btn-premium { align-self: flex-start; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="settings-heading">
+    <h1>Settings</h1>
+    <p>Manage your profile, workspace appearance, and account preferences.</p>
+</div>
+
+<!-- Mobile tab strip -->
+<div class="settings-tabstrip" id="settingsTabstrip">
+    <div class="tab-pill active" data-target="panel-profile">Profile</div>
+    <div class="tab-pill" data-target="panel-appearance">Appearance</div>
+    <div class="tab-pill" data-target="panel-notifications">Notifications</div>
+    <div class="tab-pill" data-target="panel-security">Account &amp; Security</div>
+    <div class="tab-pill" data-target="panel-data">Data &amp; Privacy</div>
+</div>
+
+<div class="settings-shell">
+
+    <!-- Desktop left rail -->
+    <div class="settings-rail" id="settingsRail">
+        <div class="settings-rail-item active" data-target="panel-profile">
+            <span class="rail-icon">👤</span> Profile
+        </div>
+        <div class="settings-rail-item" data-target="panel-appearance">
+            <span class="rail-icon">🎨</span> Appearance
+        </div>
+        <div class="settings-rail-item" data-target="panel-notifications">
+            <span class="rail-icon">🔔</span> Notifications
+        </div>
+        <div class="settings-rail-item" data-target="panel-security">
+            <span class="rail-icon">🔒</span> Account &amp; Security
+        </div>
+        <div class="settings-rail-item" data-target="panel-data">
+            <span class="rail-icon">🗄️</span> Data &amp; Privacy
+        </div>
+        <div class="settings-rail-item danger-link" data-target="panel-data">
+            <span class="rail-icon">⚠️</span> Danger Zone
+        </div>
+    </div>
+
+    <div class="settings-panels">
+
+        <!-- ================= PROFILE ================= -->
+        <div class="settings-panel active" id="panel-profile">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Profile</h3>
+                        <p>This information appears across your notes, shared links, and team spaces.</p>
+                    </div>
+                </div>
+
+                <form id="profileForm">
+                    <div class="field-group">
+                        <div class="field">
+                            <label for="fullName">Full name</label>
+                            <input type="text" id="fullName" value="{{ request.user.profiles.fullname }}">
+                        </div>
+                        <div class="field">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" value="{{ request.user.profiles.username }}">
+                        </div>
+                        <div class="field full">
+                            <label for="bio">Bio</label>
+                            <textarea id="bio" placeholder="Tell your team a little about yourself">Final-year CS student, building developer tools.</textarea>
+                        </div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button type="submit" class="btn-premium primary" id="profileSaveBtn">💾 Save changes</button>
+                        <span class="save-confirm" id="profileConfirm"><span class="dot"></span> Saved</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ================= APPEARANCE ================= -->
+        <div class="settings-panel" id="panel-appearance">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Theme</h3>
+                        <p>Choose how NoteFlow looks on this device.</p>
+                    </div>
+                </div>
+
+                <div class="theme-swatch-row" id="themeSwatchRow">
+                    <div class="theme-swatch active" data-theme="dark">
+                        <div class="swatch-preview dark">
+                            <div class="bar w1"></div><div class="bar w2"></div><div class="bar w3"></div>
+                        </div>
+                        <div class="swatch-label">🌙 Obsidian</div>
+                    </div>
+                    <div class="theme-swatch" data-theme="light">
+                        <div class="swatch-preview light">
+                            <div class="bar w1"></div><div class="bar w2"></div><div class="bar w3"></div>
+                        </div>
+                        <div class="swatch-label">☀️ Light</div>
+                    </div>
+                    <div class="theme-swatch" data-theme="white">
+                        <div class="swatch-preview white">
+                            <div class="bar w1"></div><div class="bar w2"></div><div class="bar w3"></div>
+                        </div>
+                        <div class="swatch-label">🌓 White</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Default note view</h3>
+                        <p>Choose how your notes list opens by default.</p>
+                    </div>
+                </div>
+
+                <div class="segmented-toggle" id="defaultViewToggle">
+                    <button type="button" class="active" data-view="grid">⊞ Grid</button>
+                    <button type="button" data-view="list">☰ List</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= NOTIFICATIONS ================= -->
+        <div class="settings-panel" id="panel-notifications">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Notifications</h3>
+                        <p>Choose what NoteFlow should email or notify you about.</p>
+                    </div>
+                </div>
+
+                <div class="toggle-row">
+                    <div class="toggle-copy">
+                        <h4>Weekly summary</h4>
+                        <p>A digest of your most active notes and spaces.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-row">
+                    <div class="toggle-copy">
+                        <h4>Comments &amp; mentions</h4>
+                        <p>Get notified when someone mentions you in a shared note.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-row">
+                    <div class="toggle-copy">
+                        <h4>Task reminders</h4>
+                        <p>Reminders for due dates on tasks inside your notes.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="toggle-row">
+                    <div class="toggle-copy">
+                        <h4>Product updates</h4>
+                        <p>Occasional emails about new NoteFlow features.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= ACCOUNT & SECURITY ================= -->
+        <div class="settings-panel" id="panel-security">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Account</h3>
+                        <p>Update the email and password used to sign in.</p>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <div class="field">
+                        <label for="email">Email address</label>
+                        <input type="email" id="email" value="akash.p@example.com">
+                    </div>
+                    <div class="field"></div>
+                    <div class="field">
+                        <label for="newPassword">New password</label>
+                        <input type="password" id="newPassword" placeholder="••••••••">
+                    </div>
+                    <div class="field">
+                        <label for="confirmPassword">Confirm new password</label>
+                        <input type="password" id="confirmPassword" placeholder="••••••••">
+                    </div>
+                </div>
+
+                <div class="card-actions">
+                    <button type="button" class="btn-premium primary" id="accountSaveBtn">🔐 Update account</button>
+                    <span class="save-confirm" id="accountConfirm"><span class="dot"></span> Saved</span>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Two-factor authentication</h3>
+                        <p>Add an extra layer of security to your account.</p>
+                    </div>
+                </div>
+
+                <div class="toggle-row" style="border-bottom:none; padding-bottom:0;">
+                    <div class="toggle-copy">
+                        <h4>Authenticator app</h4>
+                        <p>Require a one-time code from an authenticator app at sign in.</p>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox">
+                        <span class="switch-track"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Active sessions</h3>
+                        <p>Devices currently signed in to your account.</p>
+                    </div>
+                </div>
+
+                <div class="session-row">
+                    <div class="session-icon">💻</div>
+                    <div class="session-copy">
+                        <h4>Chrome · Windows</h4>
+                        <p>Hyderabad, India · Active now</p>
+                    </div>
+                    <span class="session-badge">This device</span>
+                </div>
+
+                <div class="session-row">
+                    <div class="session-icon">📱</div>
+                    <div class="session-copy">
+                        <h4>NoteFlow App · Android</h4>
+                        <p>Hyderabad, India · 2 hours ago</p>
+                    </div>
+                    <a href="{% url 'signout' %}">
+                    <button type="button" class="btn-outline-neutral">Sign out</button>
+                        </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= DATA & PRIVACY ================= -->
+        <div class="settings-panel" id="panel-data">
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Your data</h3>
+                        <p>Export a copy of everything in your workspace.</p>
+                    </div>
+                </div>
+
+                <div class="export-row">
+                    <div class="export-copy">
+                        <h4>Export all notes</h4>
+                        <p>Download every note as Markdown, bundled in a .zip file.</p>
+                    </div>
+                    <button type="button" class="btn-premium secondary">⬇ Export</button>
+                </div>
+
+                <div class="export-row">
+                    <div class="export-copy">
+                        <h4>Export account data</h4>
+                        <p>Includes your profile, tags, and settings as JSON.</p>
+                    </div>
+                    <button type="button" class="btn-premium secondary">⬇ Export</button>
+                </div>
+            </div>
+
+            <div class="settings-card danger">
+                <div class="settings-card-header">
+                    <div>
+                        <h3>Danger zone</h3>
+                        <p>These actions are permanent and cannot be undone.</p>
+                    </div>
+                </div>
+
+                <div class="danger-row">
+                    <div class="export-copy">
+                        <h4>Delete all notes</h4>
+                        <p>Permanently remove every note across all spaces.</p>
+                    </div>
+                    <button type="button" class="btn-danger-outline" id="deleteNotesBtn">🗑 Delete notes</button>
+                </div>
+
+                <div class="danger-row">
+                    <div class="export-copy">
+                        <h4>Delete account</h4>
+                        <p>Permanently delete your account and all associated data.</p>
+                    </div>
+                    <button type="button" class="btn-danger-outline" id="deleteAccountBtn">🗑 Delete account</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // --- Panel switching, driven by either the desktop rail or the mobile tabstrip ---
+    const railItems = document.querySelectorAll('#settingsRail .settings-rail-item');
+    const tabPills = document.querySelectorAll('#settingsTabstrip .tab-pill');
+    const panels = document.querySelectorAll('.settings-panel');
+
+    function activatePanel(targetId) {
+        panels.forEach(p => p.classList.toggle('active', p.id === targetId));
+        railItems.forEach(item => item.classList.toggle('active', item.dataset.target === targetId));
+        tabPills.forEach(pill => pill.classList.toggle('active', pill.dataset.target === targetId));
+
+        const activePill = document.querySelector(`.tab-pill[data-target="${targetId}"]`);
+        if (activePill) activePill.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+
+    railItems.forEach(item => item.addEventListener('click', () => activatePanel(item.dataset.target)));
+    tabPills.forEach(pill => pill.addEventListener('click', () => activatePanel(pill.dataset.target)));
+
+    // --- Shared "saving..." button feedback helper ---
+    // Briefly shows a spinner on the button, then swaps in the check + fades
+    // it out — used for both the profile form and the account form.
+    function runSaveFeedback(button, confirmEl, originalLabel) {
+        if (!button) return;
+        button.disabled = true;
+        button.innerHTML = '<span class="btn-spinner"></span>Saving...';
+
+        setTimeout(() => {
+            button.disabled = false;
+            button.innerHTML = originalLabel;
+            if (confirmEl) {
+                confirmEl.classList.add('show');
+                setTimeout(() => confirmEl.classList.remove('show'), 2200);
+            }
+        }, 700);
+    }
+
+    // --- Profile save confirmation ---
+    const profileForm = document.getElementById('profileForm');
+    const profileConfirm = document.getElementById('profileConfirm');
+    const profileSaveBtn = document.getElementById('profileSaveBtn');
+
+    if (profileForm) {
+        profileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            runSaveFeedback(profileSaveBtn, profileConfirm, '💾 Save changes');
+        });
+    }
+
+    // --- Account update confirmation ---
+    const accountSaveBtn = document.getElementById('accountSaveBtn');
+    const accountConfirm = document.getElementById('accountConfirm');
+
+    if (accountSaveBtn) {
+        accountSaveBtn.addEventListener('click', () => {
+            runSaveFeedback(accountSaveBtn, accountConfirm, '🔐 Update account');
+        });
+    }
+
+    // --- Theme swatches (kept in sync with the global theme switcher in the header) ---
+    const themeSwatches = document.querySelectorAll('#themeSwatchRow .theme-swatch');
+    themeSwatches.forEach(swatch => {
+        swatch.addEventListener('click', () => {
+            const theme = swatch.dataset.theme;
+            themeSwatches.forEach(s => s.classList.toggle('active', s === swatch));
+            document.documentElement.setAttribute('data-theme', theme);
+
+            // Keep any header theme-opt buttons (from nav.html) in sync too
+            document.querySelectorAll('.theme-opt').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-theme') === theme);
+            });
+        });
+    });
+
+    // Reflect whatever theme is already active on load
+    (function initThemeSwatch() {
+        const current = document.documentElement.getAttribute('data-theme') || 'dark';
+        themeSwatches.forEach(s => s.classList.toggle('active', s.dataset.theme === current));
+    })();
+
+    // --- Default note view segmented toggle ---
+    const viewButtons = document.querySelectorAll('#defaultViewToggle button');
+    viewButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            viewButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
+
+    // --- Danger zone confirmations ---
+    const deleteNotesBtn = document.getElementById('deleteNotesBtn');
+    const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+
+    if (deleteNotesBtn) {
+        deleteNotesBtn.addEventListener('click', () => {
+            if (confirm('This will permanently delete every note in your workspace. This cannot be undone. Continue?')) {
+                // Hook this up to your delete-all-notes endpoint
+                console.log('Deleting all notes...');
+            }
+        });
+    }
+
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', () => {
+            if (confirm('This will permanently delete your account and all associated data. This cannot be undone. Continue?')) {
+                // Hook this up to your delete-account endpoint
+                console.log('Deleting account...');
+            }
+        });
+    }
+</script>
+{% endblock %}

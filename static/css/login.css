@@ -1,0 +1,318 @@
+  /* --- Core Colors & Dynamic Variables --- */
+  :root {
+   --primary-purple: #6d28d9;
+   --primary-hover: #5b21b6;
+   --shadow-premium: 0 10px 30px rgba(0, 0, 0, 0.05);
+   transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  [data-theme="light"] {
+   --bg-body: #f1f5f9;
+   --bg-card: #ffffff;
+   --text-main: #1f2937;
+   --text-muted: #64748b;
+   --border-color: #e2e8f0;
+   --input-bg: #f8fafc;
+   --glass-glow: rgba(109, 40, 217, 0.03);
+  }
+
+  [data-theme="white"] {
+   --bg-body: #ffffff;
+   --bg-card: #ffffff;
+   --text-main: #000000;
+   --text-muted: #6b7280;
+   --border-color: #e5e7eb;
+   --input-bg: #f9fafb;
+   --glass-glow: rgba(0, 0, 0, 0.02);
+  }
+
+  [data-theme="dark"] {
+   --bg-body: #0f0f13;
+   --bg-card: #1c1c24;
+   --text-main: #f3f4f6;
+   --text-muted: #9ca3af;
+   --border-color: #2a2a35;
+   --input-bg: #15151e;
+   --glass-glow: rgba(109, 40, 217, 0.05);
+   --shadow-premium: 0 10px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  /* --- Global Reset & Centering --- */
+  * {
+   margin: 0;
+   padding: 0;
+   box-sizing: border-box;
+   font-family: 'Poppins', sans-serif;
+  }
+
+  body {
+   height: 100vh;
+   background-color: var(--bg-body);
+   color: var(--text-main);
+   display: flex;
+   align-items: center;
+   justify-content: center;
+   overflow: hidden;
+   position: relative;
+  }
+
+  /* --- Minimalist Background Accent Shapes (Optional) --- */
+  .ambient-glow {
+   position: absolute;
+   width: 400px;
+   height: 400px;
+   background: radial-gradient(circle, rgba(109, 40, 217, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+   top: 50%;
+   left: 50%;
+   transform: translate(-50%, -50%);
+   z-index: 1;
+   pointer-events: none;
+  }
+
+  /* --- Theme Switcher Placement --- */
+  .theme-container {
+   position: absolute;
+   top: 24px;
+   right: 24px;
+   z-index: 10;
+  }
+
+  .theme-selector {
+   display: flex;
+   gap: 4px;
+   background: var(--input-bg);
+   padding: 4px;
+   border-radius: 10px;
+   border: 1px solid var(--border-color);
+  }
+
+  .theme-opt {
+   width: 36px;
+   height: 36px;
+   font-size: 1rem;
+   border-radius: 8px;
+   cursor: pointer;
+   border: none;
+   background: transparent;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   transition: all 0.2s;
+  }
+
+  .theme-opt.active {
+   background: var(--bg-card);
+   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+   transform: scale(1.05);
+  }
+
+  /* --- Login Premium Card Structure --- */
+  .auth-container {
+   width: 100%;
+   max-width: 420px;
+   padding: 24px;
+   z-index: 5;
+  }
+
+  .auth-card {
+   background-color: var(--bg-card);
+   border: 1px solid var(--border-color);
+   border-radius: 16px;
+   padding: 40px 32px;
+   box-shadow: var(--shadow-premium);
+   background-image: linear-gradient(135deg, var(--glass-glow) 0%, transparent 100%);
+  }
+
+  /* --- Header / Branding --- */
+  .brand-header {
+   text-align: center;
+   margin-bottom: 36px;
+  }
+
+  .logo-badge {
+   width: 44px;
+   height: 44px;
+   background-color: var(--primary-purple);
+   color: #ffffff;
+   border-radius: 10px;
+   display: inline-flex;
+   align-items: center;
+   justify-content: center;
+   font-weight: 600;
+   font-size: 1.2rem;
+   margin-bottom: 14px;
+  }
+
+  .brand-header h1 {
+   font-size: 1.4rem;
+   font-weight: 600;
+   letter-spacing: -0.5px;
+   margin-bottom: 6px;
+  }
+
+  .brand-header p {
+   color: var(--text-muted);
+   font-size: 0.85rem;
+  }
+
+  /* --- Form Elements Configuration --- */
+  .form-group {
+   margin-bottom: 22px;
+   position: relative;
+  }
+
+  .form-group label {
+   display: block;
+   font-size: 0.8rem;
+   font-weight: 500;
+   margin-bottom: 8px;
+   color: var(--text-main);
+   letter-spacing: 0.3px;
+  }
+
+  .input-wrapper {
+   position: relative;
+   display: flex;
+   align-items: center;
+  }
+
+  .input-wrapper i {
+   position: absolute;
+   left: 14px;
+   color: var(--text-muted);
+   font-size: 0.9rem;
+   pointer-events: none;
+   transition: color 0.2s;
+  }
+
+  .input-wrapper input {
+   width: 100%;
+   padding: 12px 16px 12px 42px;
+   border-radius: 10px;
+   border: 1px solid var(--border-color);
+   background-color: var(--input-bg);
+   color: var(--text-main);
+   font-size: 0.9rem;
+   outline: none;
+   transition: all 0.25s ease;
+  }
+
+  .input-wrapper input:focus {
+   border-color: var(--primary-purple);
+   background-color: var(--bg-card);
+   box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.12);
+  }
+
+  .input-wrapper input:focus+i {
+   color: var(--primary-purple);
+  }
+
+  /* --- Action Layer (Remember me / Forgot password) --- */
+  .form-actions {
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   font-size: 0.8rem;
+   margin-bottom: 28px;
+  }
+
+  .remember-me {
+   display: flex;
+   align-items: center;
+   gap: 6px;
+   cursor: pointer;
+   color: var(--text-muted);
+  }
+
+  .remember-me input {
+   accent-color: var(--primary-purple);
+   cursor: pointer;
+  }
+
+  .forgot-link {
+   color: var(--primary-purple);
+   text-decoration: none;
+   font-weight: 500;
+   transition: color 0.2s;
+  }
+
+  .forgot-link:hover {
+   color: var(--primary-hover);
+  }
+
+  /* --- Primary Button --- */
+  .btn-submit {
+   width: 100%;
+   padding: 14px;
+   background-color: var(--primary-purple);
+   color: #ffffff;
+   border: none;
+   border-radius: 10px;
+   font-size: 0.95rem;
+   font-weight: 500;
+   cursor: pointer;
+   transition: all 0.2s ease;
+   box-shadow: 0 4px 12px rgba(109, 40, 217, 0.2);
+  }
+
+  .btn-submit:hover {
+   background-color: var(--primary-hover);
+   transform: translateY(-1px);
+   box-shadow: 0 6px 16px rgba(109, 40, 217, 0.3);
+  }
+
+  .btn-submit:active {
+   transform: translateY(0);
+  }
+
+  /* --- Footer Context --- */
+  .auth-footer {
+   text-align: center;
+   margin-top: 28px;
+   font-size: 0.8rem;
+   color: var(--text-muted);
+  }
+
+  .auth-footer a {
+   color: var(--primary-purple);
+   text-decoration: none;
+   font-weight: 500;
+  }
+
+  /* --- Error Messages Styling --- */
+  .error-banner {
+   background-color: rgba(239, 68, 68, 0.1);
+   border: 1px solid rgba(239, 68, 68, 0.2);
+   color: #ef4444;
+   padding: 10px 14px;
+   border-radius: 8px;
+   font-size: 0.8rem;
+   margin-bottom: 20px;
+   display: flex;
+   align-items: center;
+   gap: 8px;
+  }
+
+  /* Mobile Adjustments */
+  @media (max-width: 480px) {
+   .auth-card {
+    padding: 32px 20px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+   }
+
+   .theme-container {
+    top: 16px;
+    right: 16px;
+   }
+  }
+
+
+
+
+
+
+
+
+

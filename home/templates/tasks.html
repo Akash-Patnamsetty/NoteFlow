@@ -1,0 +1,630 @@
+{% extends 'nav.html' %}
+{% load static %}
+
+{% block title %}Dashboard - NoteFlow{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+    /* ============================================================
+       WORKSPACE / DASHBOARD — reuses nav.css tokens exactly:
+       --bg-body, --bg-card, --bg-interactive, --border-color,
+       --primary-purple, --text-main, --text-muted, --search-bg,
+       --tag-bg-purple, --tag-text-purple, --shadow-premium
+       This is why switching the header's theme selector to 🌙
+       reproduces the reference screenshot's palette exactly.
+       ============================================================ */
+
+    /* .workspace is defined in nav.css with padding:30px + overflow-y:auto.
+       We override it here so the 3-column workbench can run edge-to-edge
+       and each column scrolls independently, like a real app shell. */
+    .workspace {
+        padding: 0 !important;
+        overflow: hidden !important;
+        display: flex;
+    }
+
+    .workbench {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .wb-col {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-color);
+        min-width: 0;
+    }
+
+    .workbench > .wb-col:last-child { border-right: none; }
+
+    /* --- Notes list column --- */
+    .wb-notes {
+        width: 300px;
+        flex-shrink: 0;
+        padding: 20px 16px;
+        gap: 16px;
+        overflow-y: auto;
+    }
+
+    .wb-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--search-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .wb-search input {
+        border: none;
+        background: transparent;
+        outline: none;
+        color: var(--text-main);
+        font-size: 0.85rem;
+        width: 100%;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .wb-section-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-muted);
+    }
+
+    .wb-note-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .wb-note-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+    }
+
+    .wb-note-item:hover { background: var(--bg-interactive); }
+
+    .wb-note-item.active {
+        background: rgba(109, 40, 217, 0.08);
+        border-color: var(--primary-purple);
+    }
+
+    .wb-note-icon { font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+
+    .wb-note-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .wb-note-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* --- Editor column --- */
+    .wb-editor {
+        flex: 1;
+        min-width: 0;
+        padding: 28px 34px;
+        gap: 18px;
+        overflow-y: auto;
+    }
+
+    .wb-editor-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .wb-crumb {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .wb-save-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .wb-save-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #28c840;
+        animation: wbPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes wbPulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(40, 200, 64, 0.5); }
+        50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(40, 200, 64, 0); }
+    }
+
+    .wb-editor-title {
+        font-size: 1.6rem;
+        font-weight: 600;
+        letter-spacing: -0.4px;
+        margin: 6px 0 4px 0;
+    }
+
+    .wb-toolbar {
+        display: flex;
+        gap: 4px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+    }
+
+    .wb-tool-btn {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .wb-tool-btn:hover { background: var(--bg-interactive); color: var(--text-main); }
+
+    .wb-editor-body { font-size: 0.92rem; color: var(--text-main); line-height: 1.7; }
+    .wb-editor-body p { color: var(--text-muted); margin-bottom: 14px; }
+
+    .wb-steps {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 6px 0 18px 0;
+    }
+
+    .wb-steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 0.9rem; }
+
+    .wb-step-num {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--primary-purple);
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .wb-code-label { font-size: 0.85rem; font-weight: 600; margin: 8px 0 6px 0; }
+
+    .wb-code-block {
+        background: #08080b;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    [data-theme="light"] .wb-code-block,
+    [data-theme="white"] .wb-code-block {
+        background: #111318;
+    }
+
+    .wb-code-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 9px 14px;
+        font-size: 0.72rem;
+        color: #7d8590;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .wb-code-block pre {
+        padding: 16px 18px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        line-height: 1.75;
+        overflow-x: auto;
+        color: #e6e6e6;
+    }
+
+    .tok-kw { color: #c792ea; }
+    .tok-fn { color: #82aaff; }
+    .tok-str { color: #c3e88d; }
+    .tok-cm { color: #6b727f; }
+    .tok-var { color: #eeffff; }
+
+    /* --- AI Assistant column --- */
+    .wb-ai {
+        width: 280px;
+        flex-shrink: 0;
+        padding: 22px 18px;
+        gap: 20px;
+        overflow-y: auto;
+    }
+
+    .wb-ai-header { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; }
+
+    .wb-ai-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--primary-purple), #a78bfa);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    .wb-ai-box {
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 14px;
+    }
+
+    .wb-ai-box-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+
+    .wb-ai-box p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+
+    .wb-related { display: flex; flex-direction: column; gap: 8px; }
+
+    .wb-related a {
+        font-size: 0.82rem;
+        color: var(--text-main);
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-decoration: none;
+        transition: border-color 0.15s;
+        display: block;
+    }
+
+    .wb-related a:hover { border-color: var(--primary-purple); }
+
+    .wb-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .wb-tag-pill {
+        font-size: 0.74rem;
+        padding: 5px 12px;
+        border-radius: 20px;
+        background: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        border: 1px solid var(--primary-purple);
+    }
+
+    .wb-quick-action {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.82rem;
+        color: var(--text-main);
+        padding: 10px 6px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .wb-quick-action:hover { background: var(--bg-interactive); }
+
+    /* --- Mobile note switcher (hidden until small screens) --- */
+    .wb-mobile-switch {
+        display: none;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card);
+    }
+
+    .wb-mobile-switch select {
+        width: 100%;
+        font-size: 0.85rem;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-interactive);
+        color: var(--text-main);
+        font-family: 'Poppins', sans-serif;
+    }
+
+    /* ============================================================
+       RESPONSIVE BREAKDOWN
+       ============================================================ */
+
+    /* Laptops / small desktops — drop the AI column first */
+    @media (max-width: 1180px) {
+        .wb-ai { display: none; }
+    }
+
+    /* Tablets — narrow the notes column */
+    @media (max-width: 992px) {
+        .wb-notes { width: 230px; }
+        .wb-editor { padding: 24px; }
+    }
+
+    /* Phones — single column, note list becomes a dropdown */
+    @media (max-width: 768px) {
+        .workbench { flex-direction: column; }
+        .wb-notes { display: none; }
+        .wb-mobile-switch { display: block; }
+        .wb-editor { padding: 18px; }
+        .wb-editor-title { font-size: 1.3rem; }
+        .wb-editor-top { gap: 8px; }
+    }
+
+    @media (max-width: 480px) {
+        .wb-editor-title { font-size: 1.15rem; }
+        .wb-toolbar { gap: 2px; }
+        .wb-tool-btn { width: 26px; height: 26px; }
+        .wb-code-block pre { font-size: 0.72rem; padding: 12px; }
+        .wb-code-topbar { font-size: 0.68rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="workbench">
+
+    <!-- Notes list column -->
+    <div class="wb-col wb-notes">
+        <div class="wb-search">🔍 <input type="text" placeholder="Filter notes..."></div>
+        <div class="wb-section-label">Pinned</div>
+        <div class="wb-note-list" id="wbNotesPinned"></div>
+        <div class="wb-section-label">Recent</div>
+        <div class="wb-note-list" id="wbNotesRecent"></div>
+    </div>
+
+    <!-- Editor column -->
+    <div class="wb-col wb-editor">
+
+        <!-- Mobile-only note switcher -->
+        <div class="wb-mobile-switch">
+            <select id="wbMobileSelect"></select>
+        </div>
+
+        <div class="wb-editor-top">
+            <div class="wb-crumb" id="wbCrumb"></div>
+            <div class="wb-save-status"><span class="wb-save-dot"></span> Saved just now</div>
+        </div>
+
+        <div class="wb-editor-title" id="wbTitle"></div>
+
+        <div class="wb-toolbar">
+            <div class="wb-tool-btn">H1</div>
+            <div class="wb-tool-btn">H2</div>
+            <div class="wb-tool-btn">B</div>
+            <div class="wb-tool-btn"><i>I</i></div>
+            <div class="wb-tool-btn">U</div>
+            <div class="wb-tool-btn">&lt;/&gt;</div>
+            <div class="wb-tool-btn">☰</div>
+            <div class="wb-tool-btn">☑</div>
+            <div class="wb-tool-btn">🔗</div>
+        </div>
+
+        <div class="wb-editor-body" id="wbBody"></div>
+    </div>
+
+    <!-- AI Assistant column -->
+    <div class="wb-col wb-ai">
+        <div class="wb-ai-header"><span class="wb-ai-badge">✨</span> AI Assistant</div>
+
+        <div class="wb-ai-box">
+            <div class="wb-ai-box-label">Summary</div>
+            <p id="wbAiSummary"></p>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:8px;">Related Notes</div>
+            <div class="wb-related" id="wbRelated"></div>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:8px;">Tags</div>
+            <div class="wb-tags" id="wbTags"></div>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:4px;">Quick Actions</div>
+            <div class="wb-quick-action">📋 Summarize this note</div>
+            <div class="wb-quick-action">✏️ Generate code example</div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // ============================================================
+    // DEMO DATA — swap this object out for real notes from your
+    // backend once the view is wired up. Each key becomes one
+    // clickable entry in the notes list / mobile dropdown.
+    // ============================================================
+    const wbNotes = {
+        django: {
+            icon: '📗',
+            title: 'Django Authentication Flow',
+            meta: '2 min read · Just now',
+            space: 'Web Development',
+            crumbTitle: 'Django',
+            pinned: true,
+            summary: "This note explains Django's authentication flow: login, session handling, and authorization using permissions and groups.",
+            related: ['User Permissions in Django', 'Django Custom User Model', 'JWT Authentication in DRF', 'Django Sessions Explained'],
+            tags: ['django', 'authentication', 'backend', 'python'],
+            body: `<p>Django provides a complete authentication system out of the box. Here's how the flow works:</p>
+                <ol class="wb-steps">
+                    <li><span class="wb-step-num">1</span> User sends credentials (login form)</li>
+                    <li><span class="wb-step-num">2</span> Django validates the credentials</li>
+                    <li><span class="wb-step-num">3</span> If valid, create a session</li>
+                    <li><span class="wb-step-num">4</span> Store user data in request</li>
+                    <li><span class="wb-step-num">5</span> Use permissions &amp; groups for authorization</li>
+                </ol>
+                <div class="wb-code-label">Example — Login View</div>
+                <div class="wb-code-block">
+                    <div class="wb-code-topbar"><span>Python</span><span>login_view.py</span></div>
+                    <pre><span class="tok-kw">from</span> django.contrib.auth <span class="tok-kw">import</span> <span class="tok-var">authenticate</span>, <span class="tok-var">login</span>
+
+<span class="tok-kw">def</span> <span class="tok-fn">login_view</span>(request):
+    <span class="tok-kw">if</span> request.method == <span class="tok-str">'POST'</span>:
+        username = request.POST[<span class="tok-str">'username'</span>]
+        password = request.POST[<span class="tok-str">'password'</span>]
+        user = authenticate(request, username=username, password=password)
+        <span class="tok-kw">if</span> user <span class="tok-kw">is not</span> <span class="tok-kw">None</span>:
+            login(request, user)
+            <span class="tok-kw">return</span> redirect(<span class="tok-str">'dashboard'</span>)</pre>
+                </div>`
+        },
+        db: {
+            icon: '📘',
+            title: 'Database Optimization Tips',
+            meta: 'PostgreSQL · 10 min ago',
+            space: 'Web Development',
+            crumbTitle: 'PostgreSQL',
+            pinned: false,
+            summary: 'Practical indexing and query-planning tips for keeping PostgreSQL fast as tables grow.',
+            related: ['Indexing Strategies', 'Query Plan Reading', 'Connection Pooling', 'N+1 Query Problem'],
+            tags: ['postgresql', 'performance', 'sql'],
+            body: `<p>A few habits that consistently keep queries fast at scale:</p>
+                <ol class="wb-steps">
+                    <li><span class="wb-step-num">1</span> Index columns used in WHERE and JOIN clauses</li>
+                    <li><span class="wb-step-num">2</span> Avoid SELECT * on wide tables</li>
+                    <li><span class="wb-step-num">3</span> Use EXPLAIN ANALYZE before optimizing blindly</li>
+                    <li><span class="wb-step-num">4</span> Batch writes instead of row-by-row inserts</li>
+                    <li><span class="wb-step-num">5</span> Watch for N+1 queries in the ORM layer</li>
+                </ol>`
+        },
+        react: {
+            icon: '📙',
+            title: 'React Server Components',
+            meta: 'JavaScript · 1 hour ago',
+            space: 'Web Development',
+            crumbTitle: 'React',
+            pinned: false,
+            summary: 'Server Components render on the server and stream HTML, cutting client bundle size for data-heavy pages.',
+            related: ['Client vs Server Components', 'Streaming SSR', 'Suspense Boundaries', 'Next.js App Router'],
+            tags: ['react', 'javascript', 'frontend'],
+            body: `<p>Server Components shift rendering work off the client:</p>
+                <ol class="wb-steps">
+                    <li><span class="wb-step-num">1</span> Fetch data directly on the server, no client waterfall</li>
+                    <li><span class="wb-step-num">2</span> Zero JS shipped for server-only components</li>
+                    <li><span class="wb-step-num">3</span> Combine with Suspense for progressive streaming</li>
+                    <li><span class="wb-step-num">4</span> Client Components still handle interactivity</li>
+                </ol>`
+        },
+        sysdesign: {
+            icon: '📕',
+            title: 'System Design: Scalable Chat',
+            meta: 'Architecture · 3 hours ago',
+            space: 'Web Development',
+            crumbTitle: 'System Design',
+            pinned: false,
+            summary: 'A high-level blueprint for a chat system that scales horizontally using WebSockets and a pub/sub message bus.',
+            related: ['WebSocket Scaling', 'Pub/Sub with Redis', 'Message Ordering', 'Presence Systems'],
+            tags: ['system-design', 'architecture', 'scalability'],
+            body: `<p>Core building blocks for a chat system built to scale:</p>
+                <ol class="wb-steps">
+                    <li><span class="wb-step-num">1</span> WebSocket gateway layer for persistent connections</li>
+                    <li><span class="wb-step-num">2</span> Redis pub/sub to fan out messages across nodes</li>
+                    <li><span class="wb-step-num">3</span> Message store partitioned by conversation ID</li>
+                    <li><span class="wb-step-num">4</span> Presence service tracking online/offline state</li>
+                </ol>`
+        }
+    };
+
+    const wbOrder = ['django', 'db', 'react', 'sysdesign'];
+
+    function renderWbNote(key) {
+        const note = wbNotes[key];
+        if (!note) return;
+
+        document.getElementById('wbCrumb').textContent = `📄 ${note.space} / ${note.crumbTitle}`;
+        document.getElementById('wbTitle').textContent = note.title;
+        document.getElementById('wbBody').innerHTML = note.body;
+        document.getElementById('wbAiSummary').textContent = note.summary;
+
+        document.getElementById('wbRelated').innerHTML = note.related
+            .map(r => `<a href="#">${r}</a>`).join('');
+
+        document.getElementById('wbTags').innerHTML = note.tags
+            .map(t => `<span class="wb-tag-pill">${t}</span>`).join('');
+
+        document.querySelectorAll('.wb-note-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.key === key);
+        });
+
+        const mobileSelect = document.getElementById('wbMobileSelect');
+        if (mobileSelect) mobileSelect.value = key;
+    }
+
+    function buildWbNoteItem(key, note) {
+        const div = document.createElement('div');
+        div.className = 'wb-note-item';
+        div.dataset.key = key;
+        div.innerHTML = `
+            <span class="wb-note-icon">${note.icon}</span>
+            <div>
+                <div class="wb-note-title">${note.title}</div>
+                <div class="wb-note-meta">${note.meta}</div>
+            </div>`;
+        div.addEventListener('click', () => renderWbNote(key));
+        return div;
+    }
+
+    const wbPinnedContainer = document.getElementById('wbNotesPinned');
+    const wbRecentContainer = document.getElementById('wbNotesRecent');
+    const wbMobileSelect = document.getElementById('wbMobileSelect');
+
+    wbOrder.forEach(key => {
+        const note = wbNotes[key];
+        const item = buildWbNoteItem(key, note);
+        if (note.pinned) {
+            wbPinnedContainer.appendChild(item);
+        } else {
+            wbRecentContainer.appendChild(item);
+        }
+
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = note.title;
+        wbMobileSelect.appendChild(opt);
+    });
+
+    wbMobileSelect.addEventListener('change', (e) => renderWbNote(e.target.value));
+
+    renderWbNote('django');
+</script>
+{% endblock %}
