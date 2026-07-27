@@ -59,6 +59,7 @@ def tasks(request):
 
 @login_required
 def addnote(request):
+  print("adding note ")
   return render(request,"addnote.html")
 
 
