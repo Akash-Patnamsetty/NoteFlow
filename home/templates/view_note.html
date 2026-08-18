@@ -1,0 +1,749 @@
+{% extends 'nav.html' %}
+{% load static %}
+
+{% block title %}{{ note.title }} · NoteFlow{% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<style>
+    /* ============================================================
+       WORKSPACE / DASHBOARD — reuses nav.css tokens exactly:
+       --bg-body, --bg-card, --bg-interactive, --border-color,
+       --primary-purple, --text-main, --text-muted, --search-bg,
+       --tag-bg-purple, --tag-text-purple, --shadow-premium
+       ============================================================ */
+
+    .workspace {
+        padding: 0 !important;
+        overflow: hidden !important;
+        display: flex;
+    }
+
+    .workbench {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .wb-col {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border-color);
+        min-width: 0;
+    }
+
+    .workbench > .wb-col:last-child { border-right: none; }
+
+    /* --- Notes list column --- */
+    .wb-notes {
+        width: 300px;
+        flex-shrink: 0;
+        padding: 20px 16px;
+        gap: 16px;
+        overflow-y: auto;
+    }
+
+    .wb-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--search-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    .wb-search input {
+        border: none;
+        background: transparent;
+        outline: none;
+        color: var(--text-main);
+        font-size: 0.85rem;
+        width: 100%;
+        font-family: 'Poppins', sans-serif;
+    }
+
+    .wb-section-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--text-muted);
+    }
+
+    .wb-note-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .wb-note-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 10px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition: all 0.15s ease;
+        text-decoration: none;
+        min-width: 0;
+    }
+
+    .wb-note-item:hover { background: var(--bg-interactive); }
+
+    .wb-note-item.active {
+        background: rgba(109, 40, 217, 0.08);
+        border-color: var(--primary-purple);
+    }
+
+    .wb-note-icon { font-size: 1rem; flex-shrink: 0; margin-top: 2px; }
+
+    /* Wraps the title + meta text next to the icon. Needs min-width:0
+       so it's allowed to shrink below its content's natural width —
+       flex children default to min-width:auto, which silently defeats
+       text-overflow:ellipsis on .wb-note-title below (the title just
+       pushes the card wider instead of truncating). flex:1 lets it
+       still fill the remaining row width normally. */
+    .wb-note-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .wb-note-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .wb-note-meta { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .wb-empty-hint { font-size: 0.78rem; color: var(--text-muted); padding: 4px 2px 10px; }
+
+    /* --- Editor / viewer column --- */
+    .wb-editor {
+        flex: 1;
+        min-width: 0;
+        padding: 28px 34px;
+        gap: 18px;
+        overflow-y: auto;
+    }
+
+    .wb-editor-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .wb-crumb {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+    .wb-crumb a { color: inherit; text-decoration: none; flex-shrink: 0; }
+    .wb-crumb strong {
+        color: var(--text-main);
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+    }
+
+    .wb-save-status {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .wb-updated-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #28c840;
+        display: inline-block;
+        margin-right: 5px;
+    }
+
+    .wb-action-btn {
+        border: 1px solid var(--border-color);
+        background: transparent;
+        color: var(--text-main);
+        font-size: 0.78rem;
+        padding: 6px 12px;
+        border-radius: 7px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.15s ease;
+    }
+    .wb-action-btn:hover { border-color: var(--primary-purple); color: var(--primary-purple); }
+    .wb-action-btn.wb-danger:hover { border-color: #ef4444; color: #ef4444; }
+    .wb-action-btn.wb-pinned { border-color: var(--primary-purple); color: var(--primary-purple); }
+
+    .wb-editor-title {
+        font-size: 1.6rem;
+        font-weight: 600;
+        letter-spacing: -0.4px;
+        margin: 6px 0 4px 0;
+        overflow-wrap: break-word;
+    }
+
+    .wb-toolbar {
+        display: flex;
+        gap: 4px;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--border-color);
+        flex-wrap: wrap;
+        opacity: 0.55;
+    }
+
+    .wb-tool-btn {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 7px;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        cursor: default;
+    }
+
+    .wb-editor-body { font-size: 0.92rem; color: var(--text-main); line-height: 1.7; }
+    .wb-editor-body p { margin-bottom: 14px; page-break-inside: avoid; break-inside: avoid; }
+    .wb-editor-body h1 { font-size: 1.4rem; margin: 18px 0 8px; page-break-inside: avoid; break-inside: avoid; }
+    .wb-editor-body h2 { font-size: 1.15rem; margin: 16px 0 6px; page-break-inside: avoid; break-inside: avoid; }
+    .wb-editor-body ul { padding-left: 22px; margin-bottom: 14px; }
+    .wb-editor-body li { page-break-inside: avoid; break-inside: avoid; }
+    .wb-editor-body a { color: var(--primary-purple); }
+
+    .wb-code-block {
+        background: #08080b;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 16px 0;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    [data-theme="light"] .wb-code-block,
+    [data-theme="white"] .wb-code-block {
+        background: #111318;
+    }
+
+    .wb-code-topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 9px 14px;
+        font-size: 0.72rem;
+        color: #7d8590;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .wb-code-block pre {
+        margin: 0;
+        padding: 16px 18px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        line-height: 1.75;
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+
+    /* Base text color for code — explicit and theme-independent, so it
+       stays legible regardless of whether hljs has fired yet. */
+    .wb-code-block pre code {
+        color: #e6e6e6;
+    }
+
+    /* highlight.js supplies token colors via atom-one-dark.min.css above;
+       strip its own background/padding so it just colors text inside
+       our existing .wb-code-block wrapper instead of drawing its own box. */
+    .wb-code-block pre code.hljs {
+        background: transparent !important;
+        padding: 0 !important;
+    }
+
+    /* Export mode: html2canvas can only capture what's actually
+       painted — it can't "scroll and grab" a horizontally scrollable
+       box. .wb-code-block pre normally uses overflow-x:auto so long
+       lines scroll in-app; while capturing, force long lines to wrap
+       instead so nothing gets cut off in the PDF. Applied only inside
+       the off-screen export clone (see JS below), never on the live page. */
+    .wb-exporting .wb-code-block pre {
+        overflow-x: visible !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    .wb-note-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 18px; }
+    .wb-note-tags .wb-tag-pill {
+        font-size: 0.74rem;
+        padding: 5px 12px;
+        border-radius: 20px;
+        background: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        border: 1px solid var(--primary-purple);
+    }
+
+    /* --- AI Assistant column (visual placeholder — not wired up yet) --- */
+    .wb-ai {
+        width: 280px;
+        flex-shrink: 0;
+        padding: 22px 18px;
+        gap: 20px;
+        overflow-y: auto;
+    }
+
+    .wb-ai-header { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; }
+
+    .wb-ai-badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
+        background: linear-gradient(135deg, var(--primary-purple), #a78bfa);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+    }
+
+    .wb-ai-box {
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 14px;
+    }
+
+    .wb-ai-box-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+
+    .wb-ai-box p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; }
+
+    .wb-related { display: flex; flex-direction: column; gap: 8px; }
+
+    .wb-related a {
+        font-size: 0.82rem;
+        color: var(--text-main);
+        background: var(--bg-interactive);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-decoration: none;
+        transition: border-color 0.15s;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .wb-related a:hover { border-color: var(--primary-purple); }
+
+    .wb-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .wb-tag-pill {
+        font-size: 0.74rem;
+        padding: 5px 12px;
+        border-radius: 20px;
+        background: var(--tag-bg-purple);
+        color: var(--tag-text-purple);
+        border: 1px solid var(--primary-purple);
+    }
+
+    .wb-quick-action {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        padding: 10px 6px;
+        border-radius: 9px;
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* --- Mobile note switcher --- */
+    .wb-mobile-switch {
+        display: none;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-card);
+    }
+
+    .wb-mobile-switch select {
+        width: 100%;
+        font-size: 0.85rem;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-interactive);
+        color: var(--text-main);
+        font-family: 'Poppins', sans-serif;
+    }
+
+    /* ============================================================
+       RESPONSIVE BREAKDOWN
+       ============================================================ */
+    @media (max-width: 1180px) {
+        .wb-ai { display: none; }
+    }
+    @media (max-width: 992px) {
+        .wb-notes { width: 230px; }
+        .wb-editor { padding: 24px; }
+    }
+    @media (max-width: 768px) {
+        .workbench { flex-direction: column; }
+        .wb-notes { display: none; }
+        .wb-mobile-switch { display: block; }
+        .wb-editor { padding: 18px; }
+        .wb-editor-title { font-size: 1.3rem; }
+        .wb-editor-top { gap: 8px; }
+    }
+    @media (max-width: 480px) {
+        .wb-editor-title { font-size: 1.15rem; }
+        .wb-toolbar { gap: 2px; }
+        .wb-tool-btn { width: 26px; height: 26px; }
+        .wb-code-block pre { font-size: 0.72rem; padding: 12px; }
+        .wb-code-topbar { font-size: 0.68rem; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="workbench">
+
+    <!-- Notes list column -->
+    <div class="wb-col wb-notes">
+        <form class="wb-search" action="{% url 'dashboard' %}" method="get">
+            🔍 <input type="text" name="q" placeholder="Filter notes...">
+        </form>
+
+        <div class="wb-section-label">Pinned</div>
+        <div class="wb-note-list">
+            {% for n in pinned_notes %}
+            <a class="wb-note-item {% if n.id == note.id %}active{% endif %}" href="{% url 'view_note' n.id %}">
+                <span class="wb-note-icon">📌</span>
+                <div class="wb-note-info">
+                    <div class="wb-note-title">{{ n.title }}</div>
+                    <div class="wb-note-meta">{{ n.updated_at|timesince }} ago</div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="wb-empty-hint">Pin a note (top right) to keep it here.</div>
+            {% endfor %}
+        </div>
+
+        <div class="wb-section-label">Recent</div>
+        <div class="wb-note-list">
+            {% for n in recent_notes %}
+            <a class="wb-note-item {% if n.id == note.id %}active{% endif %}" href="{% url 'view_note' n.id %}">
+                <span class="wb-note-icon">📄</span>
+                <div class="wb-note-info">
+                    <div class="wb-note-title">{{ n.title }}</div>
+                    <div class="wb-note-meta">{{ n.updated_at|timesince }} ago</div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="wb-empty-hint">Notes you open will show up here.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Editor / viewer column -->
+    <div class="wb-col wb-editor">
+
+        <!-- Mobile-only note switcher -->
+        <div class="wb-mobile-switch">
+            <select id="wbMobileSelect" onchange="if(this.value) window.location.href=this.value;">
+                <option value="">Jump to a note…</option>
+                {% for n in pinned_notes %}
+                <option value="{% url 'view_note' n.id %}" {% if n.id == note.id %}selected{% endif %}>📌 {{ n.title }}</option>
+                {% endfor %}
+                {% for n in recent_notes %}
+                <option value="{% url 'view_note' n.id %}" {% if n.id == note.id %}selected{% endif %}>{{ n.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="wb-editor-top">
+            <div class="wb-crumb"><a href="{% url 'dashboard' %}">📁 All Notes</a> / <strong>{{ note.title }}</strong></div>
+            <div class="wb-save-status">
+                <span><span class="wb-updated-dot"></span>Updated {{ note.updated_at|timesince }} ago</span>
+                <button class="wb-action-btn {% if note.is_pinned %}wb-pinned{% endif %}" id="pinBtn"
+                        data-pin-url="{% url 'toggle_pin' note.id %}">
+                    📌 {% if note.is_pinned %}Pinned{% else %}Pin{% endif %}
+                </button>
+                <a class="wb-action-btn" href="{% url 'edit_note' note.id %}">✏️ Edit</a>
+                <button class="wb-action-btn" id="exportPdfBtn" data-filename="{{ note.title|default:'note' }}">📄 Export</button>
+                <button class="wb-action-btn wb-danger" id="deleteNoteBtn"
+                        data-delete-url="{% url 'delete_note' note.id %}"
+                        data-dashboard-url="{% url 'dashboard' %}">🗑 Delete</button>
+            </div>
+        </div>
+
+        <div class="wb-toolbar">
+            <div class="wb-tool-btn">H1</div>
+            <div class="wb-tool-btn">H2</div>
+            <div class="wb-tool-btn">B</div>
+            <div class="wb-tool-btn"><i>I</i></div>
+            <div class="wb-tool-btn">U</div>
+            <div class="wb-tool-btn">&lt;/&gt;</div>
+            <div class="wb-tool-btn">☰</div>
+            <div class="wb-tool-btn">☑</div>
+            <div class="wb-tool-btn">🔗</div>
+        </div>
+
+        <div id="noteExportContent">
+            <div class="wb-editor-title">{{ note.title }}</div>
+
+            {% if tags %}
+            <div class="wb-note-tags">
+                {% for tag in tags %}<span class="wb-tag-pill">{{ tag.name }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="wb-editor-body">{{ rendered_document|safe }}</div>
+        </div>
+    </div>
+
+    <!-- AI Assistant column — visual placeholder, not wired up yet -->
+    <div class="wb-col wb-ai">
+        <div class="wb-ai-header"><span class="wb-ai-badge">✨</span> AI Assistant</div>
+
+        <div class="wb-ai-box">
+            <div class="wb-ai-box-label">Summary</div>
+            <p>AI-generated summaries are coming soon — this panel is just the layout for now.</p>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:8px;">Related Notes</div>
+            <div class="wb-related">
+                <p style="font-size:0.8rem;color:var(--text-muted);">Coming soon.</p>
+            </div>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:8px;">Tags</div>
+            <div class="wb-tags">
+                {% for tag in tags %}<span class="wb-tag-pill">{{ tag.name }}</span>{% empty %}
+                <span style="font-size:0.8rem;color:var(--text-muted);">No tags yet.</span>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div>
+            <div class="wb-section-label" style="margin-bottom:4px;">Quick Actions</div>
+            <div class="wb-quick-action" title="Coming soon">📋 Summarize this note</div>
+            <div class="wb-quick-action" title="Coming soon">✏️ Generate code example</div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+(function () {
+    function getCsrfToken() {
+        const input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return input ? input.value : '';
+    }
+
+    const pinBtn = document.getElementById('pinBtn');
+    if (pinBtn) {
+        pinBtn.addEventListener('click', async () => {
+            pinBtn.disabled = true;
+            try {
+                const res = await fetch(pinBtn.dataset.pinUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                });
+                if (!res.ok) throw new Error('Could not update pin');
+                window.location.reload();
+            } catch (err) {
+                alert('Could not update pin status.');
+                pinBtn.disabled = false;
+            }
+        });
+    }
+
+    const deleteBtn = document.getElementById('deleteNoteBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', async () => {
+            if (!confirm("Delete this note? This can't be undone.")) return;
+            deleteBtn.disabled = true;
+            try {
+                const res = await fetch(deleteBtn.dataset.deleteUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                });
+                if (!res.ok) throw new Error('Delete failed');
+                window.location.href = deleteBtn.dataset.dashboardUrl;
+            } catch (err) {
+                alert('Could not delete the note. Please try again.');
+                deleteBtn.disabled = false;
+            }
+        });
+    }
+
+    // Syntax highlight every code block rendered server-side into
+    // .wb-code-block — each one already carries a language-XXX class
+    // from render_note_document() in views.py.
+    if (window.hljs) {
+        const codeBlocks = document.querySelectorAll('.wb-code-block pre code');
+        codeBlocks.forEach((block) => {
+            try {
+                hljs.highlightElement(block);
+            } catch (err) {
+                console.error('highlight.js failed on a code block:', err);
+            }
+        });
+        if (codeBlocks.length) {
+            console.log(`highlight.js: colored ${codeBlocks.length} code block(s).`);
+        }
+    } else {
+        // If this ever prints, highlight.js didn't load — check the
+        // Network tab for a failed/blocked request to cdnjs.
+        console.warn('highlight.js (window.hljs) was not found — code blocks will stay plain.');
+    }
+
+    const exportBtn = document.getElementById('exportPdfBtn');
+if (exportBtn) {
+    exportBtn.addEventListener('click', async () => {
+        const content = document.getElementById('noteExportContent');
+        if (!content || !window.html2pdf) {
+            alert('PDF export isn\'t available right now — please try again.');
+            return;
+        }
+
+        const rawName = exportBtn.dataset.filename || 'note';
+        const safeName = rawName.trim().replace(/[^a-z0-9\-_]+/gi, '_').slice(0, 60) || 'note';
+
+        exportBtn.disabled = true;
+        const originalLabel = exportBtn.textContent;
+        exportBtn.textContent = '⏳ Exporting…';
+
+        try {
+            await html2pdf()
+                .set({
+                    margin: [10, 10, 10, 10],
+                    filename: `${safeName}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        scrollY: 0,
+                        scrollX: 0,
+                        logging: false,
+                        onclone: (clonedDoc, clonedElement) => {
+                            clonedDoc.documentElement.setAttribute('data-theme', 'light');
+
+                            if (clonedElement) {
+                                clonedElement.style.width = '100%';
+                                clonedElement.style.maxWidth = 'none';
+                                clonedElement.style.background = '#ffffff';
+                                clonedElement.style.padding = '0px';
+                                clonedElement.style.boxSizing = 'border-box';
+                            }
+
+                            // Title styling
+                            const title = clonedDoc.querySelector('#noteExportContent .wb-editor-title');
+                            if (title) {
+                                title.style.color = '#111827';
+                                title.style.fontSize = '22px';
+                                title.style.marginBottom = '12px';
+                                title.style.wordBreak = 'break-word';
+                            }
+
+                            // Body styling
+                            const body = clonedDoc.querySelector('#noteExportContent .wb-editor-body');
+                            if (body) {
+                                body.style.color = '#1f2937';
+                                body.style.fontSize = '14px';
+                                body.style.lineHeight = '1.6';
+                            }
+
+                            // Code block container styling
+                            clonedDoc.querySelectorAll('#noteExportContent .wb-code-block').forEach((block) => {
+                                block.style.background = '#0d1117';
+                                block.style.borderRadius = '8px';
+                                block.style.margin = '14px 0';
+                                block.style.border = '1px solid #30363d';
+                            });
+
+                            // Top bar styling
+                            clonedDoc.querySelectorAll('#noteExportContent .wb-code-topbar').forEach((bar) => {
+                                bar.style.background = '#161b22';
+                                bar.style.color = '#8b949e';
+                                bar.style.padding = '6px 12px';
+                                bar.style.borderBottom = '1px solid #30363d';
+                            });
+
+                            // Pre element formatting (prevents line cuts)
+                            clonedDoc.querySelectorAll('#noteExportContent .wb-code-block pre').forEach((pre) => {
+                                pre.style.background = 'transparent';
+                                pre.style.padding = '14px';
+                                pre.style.whiteSpace = 'pre-wrap';
+                                pre.style.wordBreak = 'break-word';
+                                pre.style.overflowWrap = 'anywhere';
+                            });
+
+                            // DO NOT overwrite inner span colors so highlight.js classes retain their colors
+                        },
+                    },
+                    jsPDF: {
+                        unit: 'mm',
+                        format: 'a4',
+                        orientation: 'portrait',
+                    },
+                    pagebreak: {
+                        mode: ['css', 'legacy'],
+                        avoid: ['.wb-code-block'],
+                    },
+                })
+                .from(content)
+                .save();
+        } catch (err) {
+            console.error(err);
+            alert('Could not export this note to PDF. Please try again.');
+        } finally {
+            exportBtn.disabled = false;
+            exportBtn.textContent = originalLabel;
+        }
+    });
+}
+
+
+})();
+</script>
+{% endblock %}
+igc solutions

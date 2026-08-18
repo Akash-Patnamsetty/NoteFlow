@@ -1,7 +1,7 @@
 {% extends "nav.html" %}
 {% load static %}
 
-{% block title %}New Note · NoteFlow{% endblock %}
+{% block title %}{% if note %}Edit Note{% else %}New Note{% endif %} · NoteFlow{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
@@ -332,6 +332,7 @@
         color: #fff;
     }
     .btn-solid:hover { background-color: var(--primary-hover); }
+    .btn-solid:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-outline {
         background-color: transparent;
         border: 1px solid var(--border-color);
@@ -481,14 +482,22 @@
 {% endblock %}
 
 {% block content %}
-<div class="note-editor-page">
+{% csrf_token %}
+<div class="note-editor-page"
+     id="noteEditorPage"
+     data-note-id="{% if note %}{{ note.id }}{% endif %}"
+     data-save-url="{% if note %}{% url 'edit_note' note.id %}{% else %}{% url 'addnote' %}{% endif %}"
+     data-get-note-url-base="/note/"
+     data-share-url-base="/note/"
+     data-edit-page-url-base="/addnote/"
+     data-dashboard-url="{% url 'dashboard' %}">
 
     <!-- ===================== MAIN EDITOR ===================== -->
     <div class="editor-main">
 
         <div class="editor-topline">
             <div class="editor-breadcrumb">
-                <span>📁 All Notes</span> / <strong>New Note</strong>
+                <span>📁 All Notes</span> / <strong>{% if note %}{{ note.title }}{% else %}New Note{% endif %}</strong>
             </div>
             <div class="save-status" id="saveStatus">
                 <span class="dot"></span> <span id="saveStatusText">All changes saved</span>
@@ -555,7 +564,7 @@
         <h3>Share this note</h3>
         <p>Anyone with this link can view a read-only version of your note.</p>
         <div class="share-link-row">
-            <input type="text" id="shareLinkInput" readonly value="https://noteflow.app/n/8f3k2-django-auth-flow">
+            <input type="text" id="shareLinkInput" readonly value="" placeholder="Click Share to generate a link">
             <button id="copyLinkBtn">Copy</button>
         </div>
         <div class="modal-close-row">
@@ -584,6 +593,7 @@ if (!window.__noteflowAddNoteInit) {
 window.__noteflowAddNoteInit = true;
 
 (function () {
+    const editorRoot = document.getElementById('noteEditorPage');
     const noteBody = document.getElementById('noteBody');
     const noteTitle = document.getElementById('noteTitle');
     const toolbarBtns = document.querySelectorAll('.tb-btn[data-cmd]');
@@ -598,9 +608,33 @@ window.__noteflowAddNoteInit = true;
     const saveStatusText = document.getElementById('saveStatusText');
     const sidePanel = document.getElementById('sidePanel');
     const panelToggleBtn = document.getElementById('panelToggleBtn');
+    const shareModal = document.getElementById('shareModal');
+    const shareLinkInput = document.getElementById('shareLinkInput');
+    const saveNoteBtn = document.getElementById('saveNoteBtn');
+    const shareNoteBtn = document.getElementById('shareNoteBtn');
 
-    let codeBlockCount = 0;
+    // wrapper element -> its CodeMirror instance, so we can read
+    // language/filename/code back out when it's time to save.
+    const codeBlockMap = new Map();
     let lastRange = null; // remembers where the cursor was in noteBody
+
+    const LANG_LABELS = {
+        python: 'Python', javascript: 'JavaScript', html: 'HTML',
+        css: 'CSS', sql: 'SQL', bash: 'Bash',
+    };
+
+    // File-extension to auto-apply to the filename field when the
+    // language dropdown changes (keeps the base name, swaps the ext).
+    const LANG_EXT = {
+        Python: 'py', JavaScript: 'js', HTML: 'html',
+        CSS: 'css', SQL: 'sql', Bash: 'sh',
+    };
+
+    /* ---------- CSRF ---------- */
+    function getCsrfToken() {
+        const input = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return input ? input.value : '';
+    }
 
     /* ---------- Track cursor position inside the note ---------- */
     noteBody.addEventListener('keyup', saveCursor);
@@ -686,7 +720,7 @@ window.__noteflowAddNoteInit = true;
         });
     }
 
-    /* ---------- Language -> CodeMirror mode ---------- */
+    /* ---------- Language <-> CodeMirror mode ---------- */
     function modeForLang(lang) {
         switch (lang) {
             case 'Python': return 'python';
@@ -699,9 +733,11 @@ window.__noteflowAddNoteInit = true;
         }
     }
 
-    /* ---------- Code blocks (inserted INLINE at the cursor, inside noteBody) ---------- */
-    function insertCodeBlockAtCursor() {
-        codeBlockCount++;
+    /* ---------- Build a code-block element (used both for "insert new"
+       and for rebuilding blocks loaded from the server) ---------- */
+    function createCodeBlockElement(languageValue, filename, code) {
+        const label = LANG_LABELS[(languageValue || 'python').toLowerCase()] || 'Python';
+
         const wrapper = document.createElement('div');
         wrapper.className = 'code-block';
         wrapper.contentEditable = 'false'; // atomic, non-editable island inside the note
@@ -715,11 +751,64 @@ window.__noteflowAddNoteInit = true;
                     <option>SQL</option>
                     <option>Bash</option>
                 </select>
-                <input type="text" class="filename" placeholder="filename.py" value="snippet.py">
+                <input type="text" class="filename" placeholder="filename.py" value="${(filename || 'snippet.py').replace(/"/g, '&quot;')}">
                 <button class="remove-code" title="Remove block">✕</button>
             </div>
             <textarea></textarea>
         `;
+
+        const select = wrapper.querySelector('.lang-select');
+        select.value = label;
+
+        const textareaEl = wrapper.querySelector('textarea');
+        textareaEl.value = code || '';
+
+        const cm = CodeMirror.fromTextArea(textareaEl, {
+            mode: modeForLang(label),
+            theme: 'noteflow',
+            lineNumbers: true,
+            tabSize: 4,
+            indentUnit: 4,
+            lineWrapping: true,
+            viewportMargin: Infinity, // grow to fit content, no inner scrollbar
+        });
+
+        select.addEventListener('change', () => {
+            cm.setOption('mode', modeForLang(select.value));
+
+            // Auto-swap the filename extension to match the newly
+            // selected language, keeping whatever base name is there.
+            const filenameInput = wrapper.querySelector('.filename');
+            const newExt = LANG_EXT[select.value] || 'txt';
+            const currentName = filenameInput.value.trim() || 'snippet';
+            const base = currentName.includes('.')
+                ? currentName.slice(0, currentName.lastIndexOf('.'))
+                : currentName;
+            filenameInput.value = `${base}.${newExt}`;
+
+            markUnsaved();
+        });
+        cm.on('change', markUnsaved);
+
+        wrapper.querySelector('.remove-code').addEventListener('click', () => {
+            const afterLine = wrapper.nextElementSibling;
+            if (afterLine && afterLine.tagName === 'DIV' && afterLine.innerHTML === '<br>') {
+                afterLine.remove();
+            }
+            codeBlockMap.delete(wrapper);
+            wrapper.remove();
+            codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
+            markUnsaved();
+        });
+
+        codeBlockMap.set(wrapper, cm);
+        setTimeout(() => cm.refresh(), 30);
+        return wrapper;
+    }
+
+    /* ---------- Insert a brand-new code block at the cursor ---------- */
+    function insertCodeBlockAtCursor() {
+        const wrapper = createCodeBlockElement('python', 'snippet.py', '');
 
         noteBody.focus();
         const sel = window.getSelection();
@@ -747,35 +836,9 @@ window.__noteflowAddNoteInit = true;
         sel.addRange(newRange);
         lastRange = newRange.cloneRange();
 
-        // initialize CodeMirror on the textarea we just inserted
-        const textareaEl = wrapper.querySelector('textarea');
-        const cm = CodeMirror.fromTextArea(textareaEl, {
-            mode: modeForLang('Python'),
-            theme: 'noteflow',
-            lineNumbers: true,
-            tabSize: 4,
-            indentUnit: 4,
-            lineWrapping: true,
-            viewportMargin: Infinity, // grow to fit content, no inner scrollbar
-        });
-
-        const select = wrapper.querySelector('.lang-select');
-        select.addEventListener('change', () => {
-            cm.setOption('mode', modeForLang(select.value));
-            markUnsaved();
-        });
-        cm.on('change', markUnsaved);
-
-        wrapper.querySelector('.remove-code').addEventListener('click', () => {
-            afterLine.remove();
-            wrapper.remove();
-            codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
-            markUnsaved();
-        });
-
         codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
-        setTimeout(() => cm.refresh(), 30);
-        cm.focus();
+        const cm = codeBlockMap.get(wrapper);
+        if (cm) cm.focus();
         markUnsaved();
     }
 
@@ -803,6 +866,58 @@ window.__noteflowAddNoteInit = true;
         tagsWrap.insertBefore(chip, tagInput);
     }
 
+    function getTags() {
+        return Array.from(tagsWrap.querySelectorAll('.tag-chip')).map(
+            chip => chip.firstChild.textContent.trim()
+        );
+    }
+
+    /* ---------- Serialize the note for saving ----------
+       Turns the live DOM (noteBody + its .code-block islands) into the
+       {title, document, codeblocks, tags} shape save_note_from_request
+       expects: document HTML has data-codeblock="N" placeholders, and
+       the real code lives in a separate codeblocks array. */
+    function serializeForSave() {
+        const liveWrappers = Array.from(noteBody.querySelectorAll('.code-block'));
+
+        const codeblocks = liveWrappers.map((wrapper, i) => {
+            const cm = codeBlockMap.get(wrapper);
+            const select = wrapper.querySelector('.lang-select');
+            const filenameInput = wrapper.querySelector('.filename');
+            return {
+                position: i,
+                language: (select ? select.value : 'Python').toLowerCase(),
+                filename: filenameInput ? filenameInput.value : '',
+                code: cm ? cm.getValue() : '',
+            };
+        });
+
+        const clone = noteBody.cloneNode(true);
+        Array.from(clone.querySelectorAll('.code-block')).forEach((wrapper, i) => {
+            const placeholder = document.createElement('div');
+            placeholder.setAttribute('data-codeblock', String(i));
+            wrapper.replaceWith(placeholder);
+        });
+
+        return {
+            title: noteTitle.value.trim(),
+            document: clone.innerHTML,
+            codeblocks,
+            tags: getTags(),
+        };
+    }
+
+    /* ---------- Rebuild the note body from server data ---------- */
+    function rebuildNoteBody(documentHtml, codeblocks) {
+        noteBody.innerHTML = documentHtml || '';
+        Array.from(noteBody.querySelectorAll('[data-codeblock]')).forEach(placeholder => {
+            const pos = parseInt(placeholder.getAttribute('data-codeblock'), 10);
+            const block = (codeblocks || []).find(b => b.position === pos) || {};
+            const wrapper = createCodeBlockElement(block.language, block.filename, block.code);
+            placeholder.replaceWith(wrapper);
+        });
+    }
+
     /* ---------- Save / Share ---------- */
     function markUnsaved() {
         saveStatus.classList.add('saving');
@@ -814,21 +929,92 @@ window.__noteflowAddNoteInit = true;
         saveStatusText.textContent = 'All changes saved';
     }
 
-    document.getElementById('saveNoteBtn').addEventListener('click', () => {
-        // Hook this up to your Django save endpoint (fetch/POST) here.
-        markSaved();
-        showToast('Note saved successfully');
-    });
+    async function saveNote() {
+        const payload = serializeForSave();
+        saveStatus.classList.add('saving');
+        saveStatusText.textContent = 'Saving...';
+        saveNoteBtn.disabled = true;
 
-    const shareModal = document.getElementById('shareModal');
-    document.getElementById('shareNoteBtn').addEventListener('click', () => shareModal.classList.add('open'));
+        try {
+            const res = await fetch(editorRoot.dataset.saveUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || 'Save failed');
+            }
+
+            const data = await res.json();
+
+            // First save of a brand-new note: now that it has an id,
+            // switch all future saves/shares to the "edit" URLs and
+            // update the address bar without a full reload.
+            if (!editorRoot.dataset.noteId && data.id) {
+                editorRoot.dataset.noteId = data.id;
+                editorRoot.dataset.saveUrl = `${editorRoot.dataset.editPageUrlBase}${data.id}/`;
+                history.replaceState(null, '', `${editorRoot.dataset.editPageUrlBase}${data.id}/`);
+            }
+
+            markSaved();
+            showToast('Note saved successfully');
+
+            // Give the user a moment to see the confirmation, then
+            // send them back to the dashboard.
+            setTimeout(() => {
+                window.location.href = editorRoot.dataset.dashboardUrl;
+            }, 2000);
+        } catch (err) {
+            saveStatusText.textContent = 'Save failed';
+            showToast(err.message || 'Could not save note');
+            console.error(err);
+        } finally {
+            saveNoteBtn.disabled = false;
+        }
+    }
+
+    saveNoteBtn.addEventListener('click', saveNote);
+
+    async function openShareModal() {
+        // A brand-new, never-saved note has nothing to share yet — save first.
+        if (!editorRoot.dataset.noteId) {
+            await saveNote();
+            if (!editorRoot.dataset.noteId) return; // save failed, bail out
+        }
+
+        try {
+            const res = await fetch(`${editorRoot.dataset.shareUrlBase}${editorRoot.dataset.noteId}/share/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            if (!res.ok) throw new Error('Could not generate share link');
+            const data = await res.json();
+            if (data.is_shared && data.share_token) {
+                shareLinkInput.value = `${window.location.origin}/n/${data.share_token}/`;
+            } else {
+                shareLinkInput.value = '';
+            }
+        } catch (err) {
+            showToast(err.message || 'Could not generate share link');
+            console.error(err);
+        }
+
+        shareModal.classList.add('open');
+    }
+
+    shareNoteBtn.addEventListener('click', openShareModal);
     document.getElementById('closeShareModal').addEventListener('click', () => shareModal.classList.remove('open'));
     shareModal.addEventListener('click', (e) => { if (e.target === shareModal) shareModal.classList.remove('open'); });
 
     document.getElementById('copyLinkBtn').addEventListener('click', () => {
-        const input = document.getElementById('shareLinkInput');
-        input.select();
-        navigator.clipboard.writeText(input.value).then(() => showToast('Link copied to clipboard'));
+        if (!shareLinkInput.value) return;
+        shareLinkInput.select();
+        navigator.clipboard.writeText(shareLinkInput.value).then(() => showToast('Link copied to clipboard'));
     });
 
     function showToast(msg) {
@@ -852,13 +1038,43 @@ window.__noteflowAddNoteInit = true;
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
-            document.getElementById('saveNoteBtn').click();
+            saveNoteBtn.click();
         }
     });
 
-    // seed one code block by default so the section isn't empty
-    insertCodeBlockAtCursor();
-    markSaved();
+    /* ---------- Load an existing note (editing), or seed a blank one ---------- */
+    async function loadExistingNote() {
+        const noteId = editorRoot.dataset.noteId;
+        try {
+            const res = await fetch(`${editorRoot.dataset.getNoteUrlBase}${noteId}/`);
+            if (!res.ok) throw new Error('Could not load note');
+            const data = await res.json();
+
+            noteTitle.value = data.title === 'Untitled Note' ? '' : data.title;
+            rebuildNoteBody(data.document, data.codeblocks);
+            (data.tags || []).forEach(addTag);
+            updateWordCount();
+            codeCountEl.textContent = noteBody.querySelectorAll('.code-block').length;
+            if (data.created_at) {
+                createdAt.textContent = new Date(data.created_at).toLocaleDateString();
+            }
+            if (data.is_shared && data.share_token) {
+                shareLinkInput.value = `${window.location.origin}/n/${data.share_token}/`;
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('Could not load note');
+        }
+    }
+
+    const createdAt = document.getElementById('createdAt');
+
+    if (editorRoot.dataset.noteId) {
+        loadExistingNote().then(markSaved);
+    } else {
+        insertCodeBlockAtCursor(); // seed one code block by default so the section isn't empty
+        markSaved();
+    }
 })();
 
 } // end init guard

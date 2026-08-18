@@ -5,6 +5,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}NoteFlow Premium Dashboard{% endblock %}</title>
+    <script>
+        // Apply the saved theme before anything renders, so there's no
+        // flash of the default "light" theme on page load / navigation.
+        (function () {
+            var savedTheme = localStorage.getItem('noteflow-theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/nav.css' %}">
     {% block extra_css %}
@@ -28,41 +38,33 @@
         </a>
 
         <a href="{% url 'dashboard' %}">
-        <div class="nav-item active" data-filter="all">
+        <div class="nav-item {% if not active_tag %}active{% endif %}" data-filter="all">
             <div class="nav-link"><i>📁</i> <span class="label-text">  All Notes  </span></div>
-            <span class="count">24</span>
+            <span class="count">{{ sidebar_all_notes_count|default:0 }}</span>
         </div>
         </a>
-        <div class="nav-item" data-filter="archived">
-            <div class="nav-link"><i>📦</i> <span class="label-text">Archived</span></div>
-            <span class="count">6</span>
-        </div>
+
         <div class="nav-item" data-filter="trash">
             <div class="nav-link"><i>🗑️</i> <span class="label-text">Trash</span></div>
             <span class="count">2</span>
         </div>
 
         <div class="nav-title">Tags</div>
-        <div class="nav-item" data-filter="python">
-            <div class="nav-link"><span class="tag-dot" style="background-color: #3b82f6;"></span> <span class="label-text">Python</span></div>
-            <span class="count">8</span>
+        {% for tag in sidebar_tags %}
+        <a href="{% url 'dashboard' %}?tag={{ tag.name|urlencode }}">
+            <div class="nav-item {% if active_tag == tag.name %}active{% endif %}" data-filter="{{ tag.name }}">
+                <div class="nav-link">
+                    <span class="tag-dot" style="background-color: {% cycle '#3b82f6' '#14b8a6' '#f59e0b' '#a855f7' '#ec4899' '#22c55e' %};"></span>
+                    <span class="label-text">{{ tag.name }}</span>
+                </div>
+                <span class="count">{{ tag.count }}</span>
+            </div>
+        </a>
+        {% empty %}
+        <div class="nav-item">
+            <div class="nav-link"><span class="label-text" style="opacity:0.7;">No tags yet</span></div>
         </div>
-        <div class="nav-item" data-filter="django">
-            <div class="nav-link"><span class="tag-dot" style="background-color: #14b8a6;"></span> <span class="label-text">Django</span></div>
-            <span class="count">6</span>
-        </div>
-        <div class="nav-item" data-filter="interview">
-            <div class="nav-link"><span class="tag-dot" style="background-color: #f59e0b;"></span> <span class="label-text">Interview</span></div>
-            <span class="count">5</span>
-        </div>
-                <div class="nav-item" data-filter="python">
-            <div class="nav-link"><span class="tag-dot" style="background-color: #3b82f6;"></span> <span class="label-text">Python</span></div>
-            <span class="count">8</span>
-        </div>
-        <div class="nav-item" data-filter="django">
-            <div class="nav-link"><span class="tag-dot" style="background-color: #14b8a6;"></span> <span class="label-text">Django</span></div>
-            <span class="count">6</span>
-        </div>
+        {% endfor %}
 
         <div class="sidebar-footer">
             <div class="nav-item" data-filter="settings">
@@ -88,7 +90,7 @@
                 <button class="toggle-btn" id="listViewBtn">≡ List</button>
 
                 <div class="theme-selector">
-                    <button class="theme-opt active" data-theme="light" title="Light Mode">☀️</button>
+                    <button class="theme-opt" data-theme="light" title="Light Mode">☀️</button>
                     <button class="theme-opt" data-theme="white" title="White Mode">🌓</button>
                     <button class="theme-opt" data-theme="dark" title="Dark Mode">🌙</button>
                 </div>
@@ -128,14 +130,38 @@
         });
 
         // Symbol Theme Selector Click Events
+        const THEME_STORAGE_KEY = 'noteflow-theme';
         const themeButtons = document.querySelectorAll('.theme-opt');
+
+        function setActiveThemeButton(theme) {
+            themeButtons.forEach(b => {
+                b.classList.toggle('active', b.getAttribute('data-theme') === theme);
+            });
+        }
+
+        // The <head> script already applied the saved theme (or the
+        // default "light") to <html> before this ran — just sync the
+        // button highlighting to match what's actually active.
+        setActiveThemeButton(document.documentElement.getAttribute('data-theme') || 'light');
+
         themeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
-                themeButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
                 const selectedTheme = btn.getAttribute('data-theme');
                 document.documentElement.setAttribute('data-theme', selectedTheme);
+                localStorage.setItem(THEME_STORAGE_KEY, selectedTheme);
+                setActiveThemeButton(selectedTheme);
             });
+        });
+
+        // Ctrl+N / Cmd+N -> New Note. Note: some browsers reserve this
+        // shortcut for "open new browser window" and won't let JS
+        // override it even with preventDefault() — this covers the
+        // browsers/contexts that do allow it.
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+                e.preventDefault();
+                window.location.href = "{% url 'addnote' %}";
+            }
         });
     </script>
     <!-- Load the Lenis library bundle first -->

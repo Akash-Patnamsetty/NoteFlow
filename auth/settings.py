@@ -42,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'home.middleware.NoCacheMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -59,9 +60,11 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                "django.template.context_processors.debug",
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                "home.context_processors.notes_sidebar",
             ],
         },
     },
@@ -117,3 +120,36 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR/'static']
+
+
+
+
+# Sessions — keeps people logged in across browser restarts
+# https://docs.djangoproject.com/en/6.0/ref/settings/#sessions
+ 
+# Do NOT delete the session cookie when the browser closes. This is the
+# actual fix for "closes browser -> logged out on reopen".
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+ 
+# How long (seconds) a session stays valid: 14 days here.
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
+ 
+# Refresh the expiry on every request, so "14 days" means 14 days since
+# the last visit, not 14 days since the original login.
+SESSION_SAVE_EVERY_REQUEST = True
+
+
+ 
+# Auth redirects
+# https://docs.djangoproject.com/en/6.0/ref/settings/#login-url
+#
+# Without this, @login_required defaults to sending unauthenticated
+# users to '/accounts/login/' — a URL that doesn't exist in this
+# project (the real login route is named 'login', at /login/). That
+# mismatch is what was causing the 404 on Back after signout: once
+# NoCacheMiddleware started forcing a real request instead of a
+# cached page, @login_required actually ran and tried to redirect to
+# a URL that was never registered.
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
